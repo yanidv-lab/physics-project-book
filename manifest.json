@@ -1,0 +1,10 @@
+{
+  "name": "Physics Project Book — Interactive 3D Lab",
+  "short_name": "Physics Book",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#070b14",
+  "theme_color": "#070b14",
+  "description": "Interactive 3D Physics Project Book covering Circuits, Electromagnetism, Gravity & Quantum Waves."
+}

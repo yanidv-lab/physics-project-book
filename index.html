@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#070b14" />
+    <link rel="manifest" href="./manifest.json" />
+    <title>Physics Project Book — Interactive 3D Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module" crossorigin src="./assets/index-B1Zir3t9.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-ZGJOTkJU.css">
+  </head>
+  <body>
+    <div id="app">
+      <div id="canvas-host" aria-label="3D Physics Simulation Viewport"></div>
+
+      <div id="collision-vignette" class="collision-vignette"></div>
+      <div id="callout-overlay" class="screen-overlay"></div>
+      <div id="pin-overlay" class="screen-overlay"></div>
+
+      <div id="hover-note-card" class="hover-note-card hidden"></div>
+      <div id="ui-tooltip" class="ui-tooltip hidden"></div>
+      <div id="pin-editor-popover" class="pin-editor-popover hidden"></div>
+
+      <!-- 4-Volume Physics Project Book Cover Modal -->
+      <div id="book-cover-modal" class="modal-backdrop">
+        <div class="book-cover-dialog">
+          <div class="book-cover-header">
+            <div class="book-cover-title-wrap">
+              <div class="brand-dot"></div>
+              <div>
+                <h2>PHYSICS PROJECT BOOK</h2>
+                <p>Pick any volume or experiment below — explore 3D fields, hover for notes, and pin discoveries</p>
+              </div>
+            </div>
+            <div class="book-cover-actions">
+              <span id="book-cover-total" class="cover-progress-pill">0 / 21 Experiments Explored</span>
+              <button id="book-cover-phone" class="icon-btn" title="Open on Mobile Phone">📱 Open on Phone</button>
+              <button id="book-cover-close" class="icon-btn">✕ Live 3D</button>
+            </div>
+          </div>
+          <div id="book-cover-grid" class="book-cover-grid"></div>
+        </div>
+      </div>
+
+      <!-- Mobile Phone QR Code Modal -->
+      <div id="phone-modal" class="modal-backdrop hidden">
+        <div class="phone-dialog">
+          <div class="phone-dialog-head">
+            <h3>📱 Open on Your Mobile</h3>
+            <button id="phone-close-btn" class="mini-icon-btn">✕</button>
+          </div>
+          <p id="phone-tip" class="phone-tip">Scan with your phone camera (on the same Wi-Fi network) to launch the mobile-friendly 3D Physics Book:</p>
+          <div id="phone-qr-box" class="phone-qr-box"></div>
+          <div class="phone-url-row">
+            <code id="phone-url-text">http://127.0.0.1:5173/</code>
+            <button id="phone-copy-btn" class="chip-btn">Copy URL</button>
+          </div>
+          <p id="phone-alt-urls" class="phone-alt-urls hidden"></p>
+        </div>
+      </div>
+
+      <button id="show-hud-btn" class="hud-restore-btn hidden" title="Show HUD (H)">
+        Show HUD [H]
+      </button>
+
+      <div id="hud-root">
+        <header class="top-bar">
+          <div class="brand">
+            <button id="open-book-btn" class="icon-btn book-open-btn" title="Open 4-Volume Project Book Cover">
+              📚 Book
+            </button>
+            <div class="brand-text">
+              <h1>PHYSICS BOOK</h1>
+              <p class="subtitle">Interactive 3D Lab</p>
+            </div>
+          </div>
+
+          <div id="zone-pill" class="zone-pill zone-wire">
+            <span class="zone-dot"></span>
+            <span id="zone-pill-text">Copper Wire (Left Rail)</span>
+          </div>
+
+          <div id="circuit-camera-bar" class="camera-bar" role="group" aria-label="Camera Perspectives">
+            <button class="cam-btn active" data-cam="locked-drift" title="Key 1">
+              <span>1</span> Drift
+            </button>
+            <button class="cam-btn" data-cam="raw-pov" title="Key 2">
+              <span>2</span> Raw POV
+            </button>
+            <button class="cam-btn" data-cam="side-cutaway" title="Key 3">
+              <span>3</span> Cutaway
+            </button>
+            <button class="cam-btn" data-cam="macro-overview" title="Key 4">
+              <span>4</span> Macro
+            </button>
+          </div>
+
+          <div id="lab-camera-bar" class="camera-bar hidden">
+            <button id="lab-reset-view-btn" class="icon-btn" title="Reset 3D Camera Orbit">
+              ⌖ Reset View
+            </button>
+          </div>
+
+          <div class="action-bar">
+            <button id="open-phone-btn" class="icon-btn" title="Open QR Code for Mobile">
+              📱 Phone
+            </button>
+            <button id="mark-mode-btn" class="icon-btn mark-toggle-btn" title="Drop Study Pin on 3D Scene (Key M)">
+              📌 Mark
+            </button>
+            <button id="labels-btn" class="icon-btn active" title="Toggle 3D Callout Labels">
+              Labels
+            </button>
+            <div class="segmented-btns readability-switch" title="Switch between Plain-English & Formal Physics mode">
+              <button class="seg-btn active" data-readability="simple">Simple</button>
+              <button class="seg-btn" data-readability="physics">Physics</button>
+            </div>
+            <button id="play-pause-btn" class="icon-btn" title="Play / Pause (Space)">
+              Pause
+            </button>
+            <button id="reset-btn" class="icon-btn" title="Reset Simulation (R)">
+              Reset
+            </button>
+            <button id="hide-hud-btn" class="icon-btn hide-desktop-btn" title="Hide HUD (H)">
+              Hide
+            </button>
+          </div>
+        </header>
+
+        <aside id="panel-left" class="panel panel-left">
+          <div class="drawer-tabs" role="tablist">
+            <button class="drawer-tab active" data-tab="book">📖 Book</button>
+            <button class="drawer-tab" data-tab="controls">🎛 Controls</button>
+            <button class="drawer-tab" data-tab="marks">
+              📌 Marks <span id="pins-count-badge" class="tab-badge">0</span>
+            </button>
+          </div>
+
+          <!-- TAB 1: PROJECT BOOK -->
+          <div id="tab-book" class="tab-pane">
+            <div id="book-volume-strip" class="book-volume-strip"></div>
+            <div class="book-progress-box">
+              <div class="book-progress-head">
+                <button id="book-open-cover-btn" class="chip-btn">All 4 Volumes ▾</button>
+                <span id="book-progress-text" class="mono-val">0 / 9 in Vol. I</span>
+              </div>
+              <div class="progress-track">
+                <div id="book-progress-fill" class="progress-fill"></div>
+              </div>
+              <p class="book-intro">
+                Hover or tap 3D objects for study notes, or use <b>📌 Mark</b> to pin your own notes.
+              </p>
+            </div>
+            <div id="book-chapters-list" class="chapters-list"></div>
+          </div>
+
+          <!-- TAB 2: CONTROLS -->
+          <div id="tab-controls" class="tab-pane hidden">
+            <div id="circuit-controls-box" class="tab-pane">
+              <section class="panel-section">
+                <div class="section-header">Circuit Topology</div>
+                <select id="topology-select" class="select-input">
+                  <option value="simple-r">Simple R-Loop</option>
+                  <option value="rc">RC Charging / Discharging</option>
+                  <option value="rlc">RLC Resonant Tank</option>
+                  <option value="divider">Series R₁ + R₂ Divider</option>
+                </select>
+
+                <div class="segmented-row">
+                  <span class="field-label">Source</span>
+                  <div class="segmented-btns">
+                    <button class="seg-btn active" data-source="dc">DC</button>
+                    <button class="seg-btn" data-source="ac">AC</button>
+                  </div>
+                </div>
+
+                <div id="ac-controls" class="contextual-box hidden">
+                  <div class="slider-row">
+                    <div class="slider-head">
+                      <span>AC Frequency</span>
+                      <span id="ac-freq-val" class="mono-val">1.59 Hz</span>
+                    </div>
+                    <input id="ac-freq-slider" type="range" min="0.2" max="5.0" step="0.01" value="1.59" />
+                  </div>
+                  <button id="tune-f0-btn" class="chip-btn full-width hidden">
+                    Tune to Resonance f₀ = 1/(2π√LC)
+                  </button>
+                </div>
+
+                <div id="rc-controls" class="contextual-box hidden">
+                  <div class="btn-row">
+                    <button id="rc-mode-btn" class="chip-btn active">Mode: Charging</button>
+                    <button id="cap-handoff-btn" class="chip-btn">Jump Across Gap</button>
+                  </div>
+                  <label class="check-row">
+                    <input id="auto-handoff-chk" type="checkbox" checked />
+                    <span>Auto displacement-current handoff</span>
+                  </label>
+                </div>
+
+                <div id="rlc-info" class="contextual-box hidden">
+                  <div class="mini-note">
+                    L = 2.5 H &middot; C = 4 mF &middot; f₀ ≈ 1.59 Hz
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel-section">
+                <div class="section-header">Physical Parameters</div>
+
+                <div class="slider-row" data-note="voltage">
+                  <div class="slider-head">
+                    <span>Applied EMF (V<sub>src</sub>) <i class="note-q">?</i></span>
+                    <span id="voltage-val" class="mono-val">6.0 V</span>
+                  </div>
+                  <input id="voltage-slider" type="range" min="0" max="12" step="0.1" value="6.0" />
+                </div>
+
+                <div class="slider-row" data-note="r1">
+                  <div class="slider-head">
+                    <span>Load Resistance (R₁) <i class="note-q">?</i></span>
+                    <span id="r1-val" class="mono-val">10 Ω</span>
+                  </div>
+                  <input id="r1-slider" type="range" min="0" max="1" step="0.005" value="0.333" />
+                </div>
+
+                <div id="r2-row" class="slider-row hidden" data-note="r2">
+                  <div class="slider-head">
+                    <span>Divider Resistance (R₂) <i class="note-q">?</i></span>
+                    <span id="r2-val" class="mono-val">30 Ω</span>
+                  </div>
+                  <input id="r2-slider" type="range" min="0" max="1" step="0.005" value="0.492" />
+                </div>
+
+                <div class="slider-row" data-note="temp">
+                  <div class="slider-head">
+                    <span>Lattice Temperature <i class="note-q">?</i></span>
+                    <span id="temp-val" class="mono-val">300 K</span>
+                  </div>
+                  <input id="temp-slider" type="range" min="10" max="800" step="1" value="300" />
+                  <div class="chip-row">
+                    <button class="chip-btn temp-chip" data-temp="10">10 K Cryo</button>
+                    <button class="chip-btn temp-chip active" data-temp="300">300 K Room</button>
+                    <button class="chip-btn temp-chip" data-temp="800">800 K Hot</button>
+                  </div>
+                </div>
+
+                <div class="slider-row" data-note="scale">
+                  <div class="slider-head">
+                    <span>Scale Compression <i class="note-q">?</i></span>
+                    <span id="scale-val" class="mono-val">Pedagogical (5:1)</span>
+                  </div>
+                  <input id="scale-slider" type="range" min="0" max="1" step="0.01" value="0" />
+                  <div class="slider-endpoints">
+                    <span>Pedagogical</span>
+                    <span>Physical 10¹⁰:1</span>
+                  </div>
+                </div>
+
+                <div class="slider-row" data-note="time">
+                  <div class="slider-head">
+                    <span>Time Dilation <i class="note-q">?</i></span>
+                    <span id="time-val" class="mono-val">1.00×</span>
+                  </div>
+                  <input id="time-slider" type="range" min="0" max="1" step="0.005" value="0.667" />
+                  <div class="chip-row">
+                    <button class="chip-btn speed-chip" data-speed="0.05">0.05×</button>
+                    <button class="chip-btn speed-chip" data-speed="0.25">0.25×</button>
+                    <button class="chip-btn speed-chip active" data-speed="1">1×</button>
+                    <button class="chip-btn speed-chip" data-speed="5">5×</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel-section">
+                <div class="section-header">Physics Layers</div>
+                <label class="layer-toggle" data-note="layer-e">
+                  <input id="layer-e" type="checkbox" checked />
+                  <span class="swatch swatch-e"></span>
+                  <span>Electric Field Vectors (E)</span>
+                </label>
+                <label class="layer-toggle" data-note="layer-sigma">
+                  <input id="layer-sigma" type="checkbox" checked />
+                  <span class="swatch swatch-sigma"></span>
+                  <span>Surface Charge Rings (±σ)</span>
+                </label>
+                <label class="layer-toggle" data-note="layer-u">
+                  <input id="layer-u" type="checkbox" checked />
+                  <span class="swatch swatch-u"></span>
+                  <span>Potential Landscape U(x)</span>
+                </label>
+                <label class="layer-toggle" data-note="layer-phonon">
+                  <input id="layer-phonon" type="checkbox" checked />
+                  <span class="swatch swatch-phonon"></span>
+                  <span>Lattice Vibrations / Phonons</span>
+                </label>
+                <label class="layer-toggle" data-note="layer-b">
+                  <input id="layer-b" type="checkbox" checked />
+                  <span class="swatch swatch-b"></span>
+                  <span>Magnetic Field Lines (B)</span>
+                </label>
+              </section>
+            </div>
+
+            <div id="dynamic-lab-controls" class="tab-pane hidden"></div>
+          </div>
+
+          <!-- TAB 3: MARKS & NOTES -->
+          <div id="tab-marks" class="tab-pane hidden">
+            <div class="marks-header-row">
+              <span class="section-header">Study Pins &amp; Notes</span>
+              <button id="export-notes-btn" class="chip-btn">Copy Notes (MD)</button>
+            </div>
+            <div id="marks-list" class="marks-list"></div>
+          </div>
+        </aside>
+
+        <aside id="panel-right" class="panel panel-right">
+          <section class="panel-section">
+            <div class="section-header-row">
+              <span class="section-header">Live Measurements</span>
+              <span class="hint-tag">Hover stats for notes</span>
+            </div>
+
+            <div id="circuit-telemetry-grid" class="telemetry-grid">
+              <div class="stat-card" data-note="tel-e">
+                <div id="lbl-e" class="stat-label">Electric Push (E)</div>
+                <div id="tel-e" class="stat-value">0.000 V/m</div>
+              </div>
+              <div class="stat-card" data-note="tel-i">
+                <div id="lbl-i" class="stat-label">Loop Current (I)</div>
+                <div id="tel-i" class="stat-value">0.000 A</div>
+              </div>
+              <div class="stat-card" data-note="tel-vinst">
+                <div id="lbl-vinst" class="stat-label">Zip Speed (v_inst)</div>
+                <div id="tel-vinst" class="stat-value">1.57e6 m/s</div>
+              </div>
+              <div class="stat-card" data-note="tel-vdrift">
+                <div id="lbl-vdrift" class="stat-label">Forward March (v_d)</div>
+                <div id="tel-vdrift" class="stat-value">0.00e0 m/s</div>
+              </div>
+              <div class="stat-card" data-note="tel-v">
+                <div id="lbl-v" class="stat-label">Local Voltage (V)</div>
+                <div id="tel-v" class="stat-value">0.00 V</div>
+              </div>
+              <div class="stat-card" data-note="tel-u">
+                <div id="lbl-u" class="stat-label">Electron Energy (U)</div>
+                <div id="tel-u" class="stat-value">0.00 eV</div>
+              </div>
+              <div class="stat-card" data-note="tel-tau">
+                <div id="lbl-tau" class="stat-label">Avg Free Flight (τ)</div>
+                <div id="tel-tau" class="stat-value">25.1 fs</div>
+              </div>
+              <div class="stat-card" data-note="tel-coll">
+                <div id="lbl-coll" class="stat-label">Atomic Bounces</div>
+                <div id="tel-coll" class="stat-value">0</div>
+              </div>
+              <div class="stat-card" data-note="tel-p">
+                <div id="lbl-p" class="stat-label">Heat Power (P)</div>
+                <div id="tel-p" class="stat-value">0.00 W</div>
+              </div>
+              <div class="stat-card" data-note="tel-ratio">
+                <div id="lbl-ratio" class="stat-label">Zip / Drift Ratio</div>
+                <div id="tel-ratio" class="stat-value">5 : 1</div>
+              </div>
+            </div>
+
+            <div id="lab-telemetry-grid" class="telemetry-grid hidden"></div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-header">Why This Happens Here</div>
+            <div id="katex-card" class="katex-card"></div>
+          </section>
+
+          <section id="minimap-section" class="panel-section" data-note="minimap">
+            <div class="section-header-row">
+              <span class="section-header">Eulerian Circuit Map</span>
+              <span class="hint-tag">Click loop to jump</span>
+            </div>
+            <canvas id="minimap-canvas" class="hud-canvas" width="296" height="148"></canvas>
+          </section>
+
+          <section class="panel-section" data-note="oscilloscope">
+            <div class="section-header-row">
+              <span class="section-header">Live Oscilloscope</span>
+              <span id="osc-legend" class="osc-legend">
+                <i class="leg-v">V</i>
+                <i class="leg-i">I</i>
+                <i class="leg-u">U</i>
+              </span>
+            </div>
+            <canvas id="oscilloscope-canvas" class="hud-canvas" width="296" height="122"></canvas>
+          </section>
+        </aside>
+
+        <!-- Mobile Bottom Navigation Bar -->
+        <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
+          <button class="mob-nav-btn" data-mobile-sheet="book">📖 Book</button>
+          <button class="mob-nav-btn" data-mobile-sheet="controls">🎛 Controls</button>
+          <button class="mob-nav-btn" data-mobile-sheet="stats">📊 Stats</button>
+          <button class="mob-nav-btn" data-mobile-sheet="marks">📌 Marks</button>
+          <button class="mob-nav-btn active" data-mobile-sheet="none">👁 3D</button>
+        </nav>
+
+        <div id="barrier-banner" class="barrier-banner hidden"></div>
+      </div>
+    </div>
+
+  </body>
+</html>
