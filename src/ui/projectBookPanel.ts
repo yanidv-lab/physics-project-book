@@ -86,6 +86,7 @@ export class ProjectBookPanel {
             <div class="chapter-title">${ch.title}</div>
             <div class="chapter-sub">${ch.subtitle}</div>
           </div>
+          ${ch.isNew ? '<span class="new-badge">NEW</span>' : ''}
           <span class="diff-badge diff-${ch.difficulty.toLowerCase()}">${ch.difficulty}</span>
         </div>
         <p class="chapter-summary">${ch.simpleSummary}</p>

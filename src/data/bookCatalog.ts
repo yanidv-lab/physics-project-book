@@ -14,6 +14,7 @@ export interface BookChapterSummary {
   subtitle: string;
   difficulty: Difficulty;
   accent: string;
+  isNew?: boolean;
   simpleSummary: string;
   watchFor: string[];
   quickActions?: BookQuickAction[];
@@ -108,6 +109,29 @@ export const EM_CHAPTERS: BookChapterSummary[] = [
       { label: 'Fast Generator (2.4 Hz)', apply: { freq: 2.4 } },
     ],
   },
+  {
+    id: 'em-hall',
+    topicId: 'em',
+    number: 5,
+    title: 'The Hall Effect Sensor',
+    subtitle: 'Magnetic Deflection & Transverse Hall Voltage',
+    difficulty: 'Intermediate',
+    accent: '#06b6d4',
+    isNew: true,
+    simpleSummary:
+      'Send current through a metal strip inside a magnetic field and carriers get pushed sideways to the edge! That transverse pile-up creates a measurable Hall Voltage—and reveals whether current is carried by negative electrons or positive holes.',
+    watchFor: [
+      'Click "Replay Charge Buildup" to watch moving charges bend sideways toward the front wall.',
+      'Once equilibrium builds, transverse purple E_H arrows balance v × B so the beam runs straight!',
+      'Switch between n-Type Electrons and p-Type Holes and watch the Hall Voltage V_H flip sign.',
+    ],
+    quickActions: [
+      { label: 'p-Type Holes (+q)', apply: { carrierSign: 1 } },
+      { label: 'n-Type Electrons (−q)', apply: { carrierSign: -1 } },
+      { label: 'Flip B-Field', apply: { action: 'flipB' } },
+      { label: 'Replay Charge Buildup', apply: { action: 'replayHall' } },
+    ],
+  },
 ];
 
 export const GRAVITY_CHAPTERS: BookChapterSummary[] = [
@@ -185,6 +209,29 @@ export const GRAVITY_CHAPTERS: BookChapterSummary[] = [
     quickActions: [
       { label: 'Fire Slingshot Probe', apply: { action: 'launchSlingshot' } },
       { label: 'Boost Black Hole Mass', apply: { centralMass: 3.2 } },
+    ],
+  },
+  {
+    id: 'grav-lagrange',
+    topicId: 'gravity',
+    number: 5,
+    title: 'Lagrange Points & Space Telescopes',
+    subtitle: 'Rotating 3-Body Wells, JWST & Trojans',
+    difficulty: 'Advanced',
+    accent: '#10b981',
+    isNew: true,
+    simpleSummary:
+      'In a rotating Star–Planet frame, gravity and outward centrifugal sling balance at five magic parking spots L1–L5! Collinear saddles L1/L2 host observatories like JWST, while triangular peaks L4/L5 trap Trojan asteroids.',
+    watchFor: [
+      'Hover over L1–L5 diamonds on the 3D Roche surface to inspect collinear saddles vs Trojan peaks.',
+      'Compare stable L4/L5 tadpole loops at low mass ratio μ = 0.03 against L2 saddle parking.',
+      'Try "Unstable μ = 0.10" above the 0.0385 threshold to watch the Trojan orbit spiral away!',
+    ],
+    quickActions: [
+      { label: 'Park at L4 (Trojan)', apply: { preset: 'L4', mu: 0.03 } },
+      { label: 'Park at L2 (JWST)', apply: { preset: 'L2', mu: 0.03 } },
+      { label: 'Park at L1 (Saddle)', apply: { preset: 'L1', mu: 0.03 } },
+      { label: 'Unstable μ = 0.10', apply: { preset: 'L4', mu: 0.10 } },
     ],
   },
 ];
@@ -269,6 +316,29 @@ export const WAVES_CHAPTERS: BookChapterSummary[] = [
       { label: 'Vortex Curl ∇×F', apply: { fieldMode: 'curl' } },
     ],
   },
+  {
+    id: 'wave-harmonic',
+    topicId: 'waves',
+    number: 5,
+    title: 'Quantum Harmonic Oscillator',
+    subtitle: 'Zero-Point Energy & Coherent Pendulum',
+    difficulty: 'Advanced',
+    accent: '#fbbf24',
+    isNew: true,
+    simpleSummary:
+      'Trap a quantum particle inside a parabolic bowl V = ½ω²x² and even the lowest state refuses to sit at rest (Zero-Point Energy E₀ = ½ℏω)! Mix levels to beat, or displace the packet into a quantum pendulum.',
+    watchFor: [
+      'Notice the glowing emerald tails of |ψ|² leaking past the magenta classical turning-point pillars!',
+      'Compare stationary eigenstates (n = 0..4) against "Quantum Beat (0 + 1)" where probability sloshes.',
+      'Select "Coherent Pendulum" to watch a non-spreading Gaussian oscillate like a classical mass on a spring!',
+    ],
+    quickActions: [
+      { label: 'Ground State (n=0)', apply: { qhoMode: 'eigenstate', qhoLevel: 0 } },
+      { label: 'Excited Mode (n=3)', apply: { qhoMode: 'eigenstate', qhoLevel: 3 } },
+      { label: 'Quantum Beat (0 + 1)', apply: { qhoMode: 'superposition' } },
+      { label: 'Coherent Pendulum', apply: { qhoMode: 'coherent', qhoOffset: 4.0 } },
+    ],
+  },
 ];
 
 export const BOOK_VOLUMES: BookVolume[] = [
@@ -289,6 +359,7 @@ export const BOOK_VOLUMES: BookVolume[] = [
       subtitle: ch.subtitle,
       difficulty: ch.difficulty,
       accent: ch.accent,
+      isNew: ch.isNew,
       simpleSummary: ch.simpleSummary,
       watchFor: ch.watchFor,
       quickActions: ch.quickActions?.map((q) => ({

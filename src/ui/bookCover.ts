@@ -58,12 +58,16 @@ export class BookCoverModal {
     card.className = 'volume-card';
     card.style.setProperty('--vol-accent', vol.accent);
 
-    const pills = vol.chapters
-      .slice(0, 4)
-      .map(
-        (ch) =>
-          `<button class="vol-ch-pill" data-ch="${ch.id}">${ch.number}. ${ch.title}</button>`,
-      )
+    const pillChapters =
+      vol.chapters.length <= 5
+        ? vol.chapters
+        : [...vol.chapters.slice(0, 4), vol.chapters[vol.chapters.length - 1]];
+
+    const pills = pillChapters
+      .map((ch) => {
+        const badge = ch.isNew ? ' <span class="new-badge">NEW</span>' : '';
+        return `<button class="vol-ch-pill" data-ch="${ch.id}">${ch.number}. ${ch.title}${badge}</button>`;
+      })
       .join('');
 
     card.innerHTML = `

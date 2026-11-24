@@ -260,3 +260,253 @@ export class QuantumTunnelingSolver {
     return { reflected, barrier, transmitted };
   }
 }
+
+export type HarmonicStateMode = 'eigenstate' | 'superposition' | 'coherent';
+
+/**
+ * Physicists' Hermite polynomial H_n(xi) computed via exact 3-term recurrence.
+ */
+export function hermitePoly(n: number, xi: number): number {
+  if (n <= 0) return 1;
+  if (n === 1) return 2 * xi;
+  let hPrev = 1;
+  let hCurr = 2 * xi;
+  for (let k = 1; k < n; k++) {
+    const hNext = 2 * xi * hCurr - 2 * k * hPrev;
+    hPrev = hCurr;
+    hCurr = hNext;
+  }
+  return hCurr;
+}
+
+export function harmonicEigenvalue(n: number, omega: number): number {
+  return (n + 0.5) * omega;
+}
+
+/**
+ * Exact unitary 1D Crank-Nicolson Time-Dependent Schrödinger Equation solver
+ * inside a parabolic harmonic trap V(x) = 0.5 * omega^2 * x^2.
+ */
+export class QuantumHarmonicSolver {
+  public readonly n: number;
+  public readonly dx: number;
+  public readonly xMin: number;
+
+  public readonly psiRe: Float64Array;
+  public readonly psiIm: Float64Array;
+  public readonly potential: Float64Array;
+
+  private readonly cPrimeRe: Float64Array;
+  private readonly cPrimeIm: Float64Array;
+  private readonly dPrimeRe: Float64Array;
+  private readonly dPrimeIm: Float64Array;
+  private readonly rhsRe: Float64Array;
+  private readonly rhsIm: Float64Array;
+
+  public omega = 0.45;
+  public mode: HarmonicStateMode = 'eigenstate';
+  public nLevel = 0;
+  public offsetX = 0;
+
+  constructor(n = 180, dx = 0.18) {
+    this.n = n;
+    this.dx = dx;
+    this.xMin = -0.5 * n * dx;
+
+    this.psiRe = new Float64Array(n);
+    this.psiIm = new Float64Array(n);
+    this.potential = new Float64Array(n);
+
+    this.cPrimeRe = new Float64Array(n);
+    this.cPrimeIm = new Float64Array(n);
+    this.dPrimeRe = new Float64Array(n);
+    this.dPrimeIm = new Float64Array(n);
+    this.rhsRe = new Float64Array(n);
+    this.rhsIm = new Float64Array(n);
+
+    this.reset('eigenstate', 0, 0.45, 0);
+  }
+
+  public getX(index: number): number {
+    return this.xMin + index * this.dx;
+  }
+
+  public reset(
+    mode: HarmonicStateMode = 'eigenstate',
+    nLevel = 0,
+    omega = 0.45,
+    offsetX = 0,
+  ): void {
+    this.mode = mode;
+    this.nLevel = Math.max(0, Math.round(nLevel));
+    this.omega = omega;
+    this.offsetX = offsetX;
+
+    for (let j = 0; j < this.n; j++) {
+      const x = this.getX(j);
+      this.potential[j] = 0.5 * omega * omega * x * x;
+    }
+
+    const sqrtOmega = Math.sqrt(Math.max(1e-6, omega));
+
+    if (mode === 'superposition') {
+      const p0 = new Float64Array(this.n);
+      const p1 = new Float64Array(this.n);
+      let norm0 = 0;
+      let norm1 = 0;
+      for (let j = 0; j < this.n; j++) {
+        const x = this.getX(j);
+        const gauss = Math.exp(-0.5 * omega * x * x);
+        p0[j] = gauss;
+        p1[j] = hermitePoly(1, sqrtOmega * x) * gauss;
+        norm0 += p0[j] * p0[j] * this.dx;
+        norm1 += p1[j] * p1[j] * this.dx;
+      }
+      const inv0 = 1 / Math.sqrt(Math.max(1e-12, norm0));
+      const inv1 = 1 / Math.sqrt(Math.max(1e-12, norm1));
+      for (let j = 0; j < this.n; j++) {
+        this.psiRe[j] = (p0[j] * inv0 + p1[j] * inv1) * Math.SQRT1_2;
+        this.psiIm[j] = 0;
+      }
+    } else if (mode === 'coherent') {
+      for (let j = 0; j < this.n; j++) {
+        const x = this.getX(j);
+        const dxOff = x - offsetX;
+        this.psiRe[j] = Math.exp(-0.5 * omega * dxOff * dxOff);
+        this.psiIm[j] = 0;
+      }
+    } else {
+      for (let j = 0; j < this.n; j++) {
+        const x = this.getX(j);
+        this.psiRe[j] = hermitePoly(this.nLevel, sqrtOmega * x) * Math.exp(-0.5 * omega * x * x);
+        this.psiIm[j] = 0;
+      }
+    }
+
+    let norm = 0;
+    for (let j = 0; j < this.n; j++) {
+      norm += (this.psiRe[j] * this.psiRe[j] + this.psiIm[j] * this.psiIm[j]) * this.dx;
+    }
+    const invSqrt = 1 / Math.sqrt(Math.max(1e-12, norm));
+    for (let j = 0; j < this.n; j++) {
+      this.psiRe[j] *= invSqrt;
+      this.psiIm[j] *= invSqrt;
+    }
+  }
+
+  public step(dt = 0.035): void {
+    const n = this.n;
+    const alpha = dt / (4 * this.dx * this.dx);
+    const halfDt = 0.5 * dt;
+
+    for (let j = 0; j < n; j++) {
+      const pRe = this.psiRe[j];
+      const pIm = this.psiIm[j];
+      const diagIm = -2 * alpha - halfDt * this.potential[j];
+
+      const leftRe = j > 0 ? this.psiRe[j - 1] : 0;
+      const leftIm = j > 0 ? this.psiIm[j - 1] : 0;
+      const rightRe = j < n - 1 ? this.psiRe[j + 1] : 0;
+      const rightIm = j < n - 1 ? this.psiIm[j + 1] : 0;
+
+      this.rhsRe[j] = pRe - diagIm * pIm - alpha * (leftIm + rightIm);
+      this.rhsIm[j] = pIm + diagIm * pRe + alpha * (leftRe + rightRe);
+    }
+
+    const cRe = 0;
+    const cIm = -alpha;
+    const aRe = 0;
+    const aIm = -alpha;
+
+    const b0Re = 1;
+    const b0Im = 2 * alpha + halfDt * this.potential[0];
+    const den0 = b0Re * b0Re + b0Im * b0Im;
+    this.cPrimeRe[0] = (cRe * b0Re + cIm * b0Im) / den0;
+    this.cPrimeIm[0] = (cIm * b0Re - cRe * b0Im) / den0;
+    this.dPrimeRe[0] = (this.rhsRe[0] * b0Re + this.rhsIm[0] * b0Im) / den0;
+    this.dPrimeIm[0] = (this.rhsIm[0] * b0Re - this.rhsRe[0] * b0Im) / den0;
+
+    for (let j = 1; j < n; j++) {
+      const bjRe = 1;
+      const bjIm = 2 * alpha + halfDt * this.potential[j];
+      const prevCRe = this.cPrimeRe[j - 1];
+      const prevCIm = this.cPrimeIm[j - 1];
+      const prevDRe = this.dPrimeRe[j - 1];
+      const prevDIm = this.dPrimeIm[j - 1];
+
+      const acRe = aRe * prevCRe - aIm * prevCIm;
+      const acIm = aRe * prevCIm + aIm * prevCRe;
+      const dRe = bjRe - acRe;
+      const dIm = bjIm - acIm;
+      const dSq = dRe * dRe + dIm * dIm;
+
+      if (j < n - 1) {
+        this.cPrimeRe[j] = (cRe * dRe + cIm * dIm) / dSq;
+        this.cPrimeIm[j] = (cIm * dRe - cRe * dIm) / dSq;
+      }
+
+      const adRe = aRe * prevDRe - aIm * prevDIm;
+      const adIm = aRe * prevDIm + aIm * prevDRe;
+      const numRe = this.rhsRe[j] - adRe;
+      const numIm = this.rhsIm[j] - adIm;
+      this.dPrimeRe[j] = (numRe * dRe + numIm * dIm) / dSq;
+      this.dPrimeIm[j] = (numIm * dRe - numRe * dIm) / dSq;
+    }
+
+    this.psiRe[n - 1] = this.dPrimeRe[n - 1];
+    this.psiIm[n - 1] = this.dPrimeIm[n - 1];
+    for (let j = n - 2; j >= 0; j--) {
+      const nextRe = this.psiRe[j + 1];
+      const nextIm = this.psiIm[j + 1];
+      const cpRe = this.cPrimeRe[j];
+      const cpIm = this.cPrimeIm[j];
+      this.psiRe[j] = this.dPrimeRe[j] - (cpRe * nextRe - cpIm * nextIm);
+      this.psiIm[j] = this.dPrimeIm[j] - (cpRe * nextIm + cpIm * nextRe);
+    }
+  }
+
+  public getNorm(): number {
+    let sum = 0;
+    for (let j = 0; j < this.n; j++) {
+      sum += (this.psiRe[j] * this.psiRe[j] + this.psiIm[j] * this.psiIm[j]) * this.dx;
+    }
+    return sum;
+  }
+
+  public getExpectationX(): number {
+    let mean = 0;
+    for (let j = 0; j < this.n; j++) {
+      const x = this.getX(j);
+      const p = this.psiRe[j] * this.psiRe[j] + this.psiIm[j] * this.psiIm[j];
+      mean += x * p * this.dx;
+    }
+    return mean;
+  }
+
+  public getSpreadX(): number {
+    const mean = this.getExpectationX();
+    let varX = 0;
+    for (let j = 0; j < this.n; j++) {
+      const dxm = this.getX(j) - mean;
+      const p = this.psiRe[j] * this.psiRe[j] + this.psiIm[j] * this.psiIm[j];
+      varX += dxm * dxm * p * this.dx;
+    }
+    return Math.sqrt(Math.max(0, varX));
+  }
+
+  public getExpectedEnergy(): number {
+    let potentialE = 0;
+    for (let j = 0; j < this.n; j++) {
+      const p = this.psiRe[j] * this.psiRe[j] + this.psiIm[j] * this.psiIm[j];
+      potentialE += this.potential[j] * p * this.dx;
+    }
+    let kineticE = 0;
+    const invDx = 1 / this.dx;
+    for (let j = 0; j < this.n - 1; j++) {
+      const dRe = (this.psiRe[j + 1] - this.psiRe[j]) * invDx;
+      const dIm = (this.psiIm[j + 1] - this.psiIm[j]) * invDx;
+      kineticE += 0.5 * (dRe * dRe + dIm * dIm) * this.dx;
+    }
+    return kineticE + potentialE;
+  }
+}

@@ -196,3 +196,37 @@ export function evaluateFaradayCoil(
     emf,
   };
 }
+
+export interface HallEquilibriumSample {
+  driftSpeed: number;
+  hallFieldZ: number;
+  hallVoltage: number;
+  magneticDeflectAccelZ: number;
+}
+
+/**
+ * Evaluates steady-state Hall Effect equilibrium in a rectangular bar
+ * with conventional current I along +X and magnetic field B_y along +Y.
+ * Right-handed axes: x_hat x y_hat = +z_hat.
+ */
+export function evaluateHallEquilibrium(
+  current: number,
+  bFieldY: number,
+  carrierSign: 1 | -1,
+  width = 4.4,
+  thickness = 1.3,
+  carrierDensity = 1.0,
+): HallEquilibriumSample {
+  const safeDenom = Math.max(1e-6, carrierDensity * width * thickness);
+  const driftSpeed = carrierSign * (current / safeDenom);
+  const magneticDeflectAccelZ = carrierSign * driftSpeed * bFieldY;
+  const hallFieldZ = -driftSpeed * bFieldY;
+  const hallVoltage = -hallFieldZ * width;
+
+  return {
+    driftSpeed,
+    hallFieldZ,
+    hallVoltage,
+    magneticDeflectAccelZ,
+  };
+}

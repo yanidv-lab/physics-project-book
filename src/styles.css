@@ -930,6 +930,23 @@ body,
   flex-shrink: 0;
 }
 
+.new-badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  margin-left: 3px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  color: #6ee7b7;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
 .diff-beginner {
   background: rgba(16, 185, 129, 0.16);
   color: #6ee7b7;

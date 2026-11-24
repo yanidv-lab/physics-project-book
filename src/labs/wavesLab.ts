@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import {
+  QuantumHarmonicSolver,
   QuantumTunnelingSolver,
   evaluateDoubleSlit,
   evaluateVectorField,
+  harmonicEigenvalue,
+  type HarmonicStateMode,
   type VectorFieldMode,
 } from '../physics/quantumWavePhysics';
 import type {
@@ -15,7 +18,12 @@ import type {
   LabTelemetryCard,
 } from './labModule';
 
-type WavesChapterId = 'wave-interference' | 'wave-standing' | 'wave-tunneling' | 'wave-vectorfield';
+type WavesChapterId =
+  | 'wave-interference'
+  | 'wave-standing'
+  | 'wave-tunneling'
+  | 'wave-vectorfield'
+  | 'wave-harmonic';
 
 interface StudyMeta {
   key: string;
@@ -73,6 +81,19 @@ export class WavesLab implements LabModule {
   private vfTracerMesh: THREE.InstancedMesh | null = null;
   private vfTracerPos = new Float32Array(VF_TRACERS * 2);
 
+  // 5. Quantum Harmonic Oscillator
+  private qhoMode: HarmonicStateMode = 'eigenstate';
+  private qhoLevel = 1;
+  private qhoOmega = 0.45;
+  private qhoOffset = 4.0;
+  private qhoTurningX = 2.6;
+  private qhoSolver = new QuantumHarmonicSolver(180, 0.18);
+  private qhoBowlMesh: THREE.Mesh | null = null;
+  private qhoBowlWire: THREE.Mesh | null = null;
+  private qhoProbCurtain: THREE.Mesh | null = null;
+  private qhoPhaseHelix: THREE.Line | null = null;
+  private qhoMeanMarker: THREE.Mesh | null = null;
+
   private hitTargets: THREE.Object3D[] = [];
   private disposables: Array<{ dispose: () => void }> = [];
 
@@ -93,10 +114,17 @@ export class WavesLab implements LabModule {
       'wave-standing',
       'wave-tunneling',
       'wave-vectorfield',
+      'wave-harmonic',
     ];
     this.chapterId = valid.includes(chapterId as WavesChapterId)
       ? (chapterId as WavesChapterId)
       : 'wave-interference';
+    if (this.chapterId === 'wave-harmonic') {
+      this.qhoMode = 'eigenstate';
+      this.qhoLevel = 1;
+      this.qhoOmega = 0.45;
+      this.qhoOffset = 4.0;
+    }
     this.rebuildScene();
   }
 
@@ -107,6 +135,23 @@ export class WavesLab implements LabModule {
   public applyQuickAction(apply: Record<string, number | boolean | string>): void {
     if (apply.action === 'relaunchPacket') {
       this.qSolver.reset(this.barrierHeight, 1.6, this.packetK);
+      return;
+    }
+    let changedQho = false;
+    if (typeof apply.qhoMode === 'string') {
+      this.qhoMode = apply.qhoMode as HarmonicStateMode;
+      changedQho = true;
+    }
+    if (typeof apply.qhoLevel === 'number') {
+      this.qhoLevel = apply.qhoLevel;
+      changedQho = true;
+    }
+    if (typeof apply.qhoOffset === 'number') {
+      this.qhoOffset = apply.qhoOffset;
+      changedQho = true;
+    }
+    if (changedQho) {
+      this.rebuildScene();
       return;
     }
     if (typeof apply.singleSource === 'boolean') {
@@ -160,6 +205,11 @@ export class WavesLab implements LabModule {
     this.vfArrowShafts = null;
     this.vfArrowHeads = null;
     this.vfTracerMesh = null;
+    this.qhoBowlMesh = null;
+    this.qhoBowlWire = null;
+    this.qhoProbCurtain = null;
+    this.qhoPhaseHelix = null;
+    this.qhoMeanMarker = null;
   }
 
   private attachStudy(obj: THREE.Object3D, meta: StudyMeta): void {
@@ -174,7 +224,8 @@ export class WavesLab implements LabModule {
     if (this.chapterId === 'wave-interference') this.buildInterferenceScene();
     else if (this.chapterId === 'wave-standing') this.buildStandingScene();
     else if (this.chapterId === 'wave-tunneling') this.buildTunnelingScene();
-    else this.buildVectorFieldScene();
+    else if (this.chapterId === 'wave-vectorfield') this.buildVectorFieldScene();
+    else this.buildHarmonicScene();
   }
 
   // ---------------- 1. DOUBLE SLIT INTERFERENCE ----------------
@@ -520,6 +571,237 @@ export class WavesLab implements LabModule {
     this.group.add(this.vfTracerMesh);
   }
 
+  // ---------------- 5. QUANTUM HARMONIC OSCILLATOR ----------------
+  private buildHarmonicScene(): void {
+    const resetOffset =
+      this.qhoMode === 'coherent' ? (Math.abs(this.qhoOffset) < 0.2 ? 4.0 : this.qhoOffset) : 0;
+    this.qhoSolver.reset(this.qhoMode, this.qhoLevel, this.qhoOmega, resetOffset);
+
+    const eScale = 1.45;
+    const bowlG = this.track(new THREE.PlaneGeometry(26, 5.6, 72, 6));
+    bowlG.rotateX(-Math.PI * 0.5);
+    const vCount = bowlG.attributes.position.count;
+    bowlG.setAttribute('color', new THREE.BufferAttribute(new Float32Array(vCount * 3), 3));
+
+    const cBot = new THREE.Color(0x0f172a);
+    const cMid = new THREE.Color(0x4f46e5);
+    const cRim = new THREE.Color(0xf59e0b);
+    for (let i = 0; i < vCount; i++) {
+      const x = bowlG.attributes.position.getX(i);
+      const y = Math.min(8.2, 0.5 * this.qhoOmega * this.qhoOmega * x * x * eScale);
+      bowlG.attributes.position.setY(i, y);
+
+      const t = Math.min(1, y / 7.5);
+      if (t < 0.55) {
+        this.tmpCol.copy(cBot).lerp(cMid, t / 0.55);
+      } else {
+        this.tmpCol.copy(cMid).lerp(cRim, (t - 0.55) / 0.45);
+      }
+      bowlG.attributes.color.setXYZ(i, this.tmpCol.r, this.tmpCol.g, this.tmpCol.b);
+    }
+
+    this.qhoBowlMesh = new THREE.Mesh(
+      bowlG,
+      this.track(
+        new THREE.MeshBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.32,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        }),
+      ),
+    );
+    this.attachStudy(this.qhoBowlMesh, {
+      key: 'qho-bowl',
+      title: 'Parabolic Harmonic Trap V(x) = ½ω²x²',
+      badge: 'POTENTIAL WELL',
+      accent: '#fbbf24',
+      simple:
+        'A quantum marble rolling inside a parabolic spring bowl! Even the lowest level stays elevated above zero due to the Uncertainty Principle.',
+      deeper:
+        'Solves i∂ψ/∂t = (−½∂²/∂x² + ½ω²x²)ψ with quantized eigenstates E_n = (n + ½)ℏω.',
+    });
+
+    this.qhoBowlWire = new THREE.Mesh(
+      bowlG,
+      this.track(
+        new THREE.MeshBasicMaterial({
+          vertexColors: true,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.25,
+        }),
+      ),
+    );
+    this.group.add(this.qhoBowlMesh, this.qhoBowlWire);
+
+    // Quantized Energy Ladder Rungs n = 0..4
+    for (let lvl = 0; lvl <= 4; lvl++) {
+      const eVal = harmonicEigenvalue(lvl, this.qhoOmega);
+      const xTurnLvl = Math.min(12.8, Math.sqrt(2 * eVal) / Math.max(0.1, this.qhoOmega));
+      const yRung = Math.min(8.0, eVal * eScale);
+      const rungG = this.track(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(-xTurnLvl, yRung, 0),
+          new THREE.Vector3(xTurnLvl, yRung, 0),
+        ]),
+      );
+      const isActive =
+        (this.qhoMode === 'eigenstate' && lvl === this.qhoLevel) ||
+        (this.qhoMode === 'superposition' && (lvl === 0 || lvl === 1));
+      const rungLine = new THREE.Line(
+        rungG,
+        this.track(
+          new THREE.LineBasicMaterial({
+            color: isActive ? 0xfbbf24 : 0x6366f1,
+            transparent: true,
+            opacity: isActive ? 0.95 : 0.32,
+          }),
+        ),
+      );
+      this.group.add(rungLine);
+    }
+
+    // Classical turning point pillars
+    const eActive = this.qhoSolver.getExpectedEnergy();
+    this.qhoTurningX = Math.min(12.5, Math.sqrt(Math.max(0.01, 2 * eActive)) / Math.max(0.1, this.qhoOmega));
+    const pillarH = Math.min(8.0, Math.max(1.2, eActive * eScale + 0.5));
+    const pillarG = this.track(new THREE.CylinderGeometry(0.085, 0.085, pillarH, 12));
+    const pillarM = this.track(
+      new THREE.MeshStandardMaterial({
+        color: 0xec4899,
+        emissive: 0xdb2777,
+        emissiveIntensity: 0.65,
+        transparent: true,
+        opacity: 0.78,
+      }),
+    );
+    for (const sign of [-1, 1]) {
+      const p = new THREE.Mesh(pillarG, pillarM);
+      p.position.set(sign * this.qhoTurningX, pillarH * 0.5, 0);
+      this.attachStudy(p, {
+        key: 'qho-turning',
+        title: 'Classical Turning-Point Boundary (±x_turn)',
+        badge: 'FORBIDDEN WALL',
+        accent: '#ec4899',
+        simple:
+          'A classical ball bounces right at these pink pillars! Look just outside them to see green quantum probability tails leaking into the forbidden walls.',
+        deeper:
+          'At ±x_turn = √(2E)/ω, classical kinetic energy vanishes; beyond it |ψ|² decays evanescently rather than stopping abruptly.',
+      });
+      this.group.add(p);
+    }
+
+    // Probability Density Curtain |psi|^2
+    const n = this.qhoSolver.n;
+    const curtainG = this.track(new THREE.BufferGeometry());
+    const posArr = new Float32Array(n * 2 * 3);
+    const colArr = new Float32Array(n * 2 * 3);
+    const indices: number[] = [];
+    for (let i = 0; i < n - 1; i++) {
+      const a = i * 2;
+      const b = i * 2 + 1;
+      const c = (i + 1) * 2;
+      const d = (i + 1) * 2 + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+    curtainG.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+    curtainG.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
+    curtainG.setIndex(indices);
+    this.qhoProbCurtain = new THREE.Mesh(
+      curtainG,
+      this.track(
+        new THREE.MeshBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.48,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        }),
+      ),
+    );
+    this.attachStudy(this.qhoProbCurtain, {
+      key: 'qho-prob',
+      title: 'Harmonic Probability Density |ψ(x, t)|²',
+      badge: 'QUANTUM WAVE',
+      accent: '#00f0ff',
+      simple:
+        'Cyan inside classical limits, glowing Emerald where the wave leaks into forbidden potential walls!',
+      deeper:
+        'Exact unitary Crank-Nicolson TDSE evolution preserving ∫|ψ|² dx = 1 across eigenstates, superpositions, and coherent packets.',
+    });
+    this.group.add(this.qhoProbCurtain);
+
+    // 3D Complex Phase Helix
+    const helixG = this.track(new THREE.BufferGeometry());
+    helixG.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    this.qhoPhaseHelix = new THREE.Line(
+      helixG,
+      this.track(new THREE.LineBasicMaterial({ color: 0xfbbf24 })),
+    );
+    this.group.add(this.qhoPhaseHelix);
+
+    // Live Expectation Position Marker <x>(t)
+    this.qhoMeanMarker = new THREE.Mesh(
+      this.track(new THREE.SphereGeometry(0.28, 16, 16)),
+      this.track(
+        new THREE.MeshStandardMaterial({
+          color: 0xfbbf24,
+          emissive: 0xf59e0b,
+          emissiveIntensity: 0.85,
+        }),
+      ),
+    );
+    this.qhoMeanMarker.position.set(this.qhoSolver.getExpectationX(), 0.25, 0);
+    this.attachStudy(this.qhoMeanMarker, {
+      key: 'qho-mean',
+      title: 'Mean Position ⟨x⟩(t)',
+      badge: 'EHRENFEST CENTER',
+      accent: '#fbbf24',
+      simple:
+        'Tracks the wave’s center of mass! Frozen at x=0 for pure energy modes, but swings like a classical spring in coherent or mixed states.',
+      deeper: 'By Ehrenfest’s theorem, d²⟨x⟩/dt² = −ω²⟨x⟩ matches classical harmonic oscillation!',
+    });
+    this.group.add(this.qhoMeanMarker);
+
+    this.updateHarmonicBuffers();
+  }
+
+  private updateHarmonicBuffers(): void {
+    if (!this.qhoProbCurtain || !this.qhoPhaseHelix) return;
+    const n = this.qhoSolver.n;
+    const cPos = this.qhoProbCurtain.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const cCol = this.qhoProbCurtain.geometry.getAttribute('color') as THREE.BufferAttribute;
+    const hAttr = this.qhoPhaseHelix.geometry.getAttribute('position') as THREE.BufferAttribute;
+
+    for (let j = 0; j < n; j++) {
+      const x = this.qhoSolver.getX(j);
+      const re = this.qhoSolver.psiRe[j];
+      const im = this.qhoSolver.psiIm[j];
+      const prob = re * re + im * im;
+      const h = Math.min(7.5, prob * 9.5);
+
+      cPos.setXYZ(j * 2, x, 0, 0);
+      cPos.setXYZ(j * 2 + 1, x, h, 0);
+
+      const inForbidden = Math.abs(x) > this.qhoTurningX;
+      this.tmpCol.setHex(inForbidden ? 0x10b981 : 0x00f0ff);
+      cCol.setXYZ(j * 2, this.tmpCol.r * 0.2, this.tmpCol.g * 0.2, this.tmpCol.b * 0.2);
+      cCol.setXYZ(j * 2 + 1, this.tmpCol.r, this.tmpCol.g, this.tmpCol.b);
+
+      hAttr.setXYZ(j, x, 2.6 + re * 4.5, im * 4.5);
+    }
+
+    cPos.needsUpdate = true;
+    cCol.needsUpdate = true;
+    hAttr.needsUpdate = true;
+
+    if (this.qhoMeanMarker) {
+      this.qhoMeanMarker.position.x = this.qhoSolver.getExpectationX();
+    }
+  }
+
   private respawnTracer(i: number): void {
     if (this.fieldMode === 'divergence') {
       const a = Math.random() * Math.PI * 2;
@@ -657,6 +939,15 @@ export class WavesLab implements LabModule {
         this.vfTracerMesh.setMatrixAt(i, this.tmpMat);
       }
       this.vfTracerMesh.instanceMatrix.needsUpdate = true;
+      return;
+    }
+
+    if (this.chapterId === 'wave-harmonic') {
+      const substeps = dt > 0 ? 4 : 0;
+      for (let s = 0; s < substeps; s++) {
+        this.qhoSolver.step(0.032);
+      }
+      this.updateHarmonicBuffers();
     }
   }
 
@@ -763,22 +1054,68 @@ export class WavesLab implements LabModule {
       };
     }
 
+    if (this.chapterId === 'wave-vectorfield') {
+      return {
+        sliders: [],
+        toggles: [
+          {
+            key: 'showTerrain',
+            label: 'Scalar Potential Terrain',
+            checked: this.showTerrain,
+            swatchColor: '#38bdf8',
+            noteTitle: 'Terrain Heightfield',
+            noteText: 'Shows the underlying scalar landscape f(x, z).',
+          },
+        ],
+        actions: [
+          { id: 'mode-gradient', label: 'Gradient ∇f' },
+          { id: 'mode-divergence', label: 'Source / Sink ∇·F' },
+          { id: 'mode-curl', label: 'Vortex Curl ∇×F' },
+        ],
+      };
+    }
+
     return {
-      sliders: [],
-      toggles: [
+      sliders: [
         {
-          key: 'showTerrain',
-          label: 'Scalar Potential Terrain',
-          checked: this.showTerrain,
-          swatchColor: '#38bdf8',
-          noteTitle: 'Terrain Heightfield',
-          noteText: 'Shows the underlying scalar landscape f(x, z).',
+          key: 'qhoOmega',
+          label: 'Trap Frequency ω',
+          min: 0.25,
+          max: 0.85,
+          step: 0.05,
+          value: this.qhoOmega,
+          unit: 'rad/s',
+          noteTitle: 'Spring Stiffness',
+          noteText: 'Steeper trap walls raise energy rungs E_n = (n + ½)ℏω and tighten confinement.',
+        },
+        {
+          key: 'qhoLevel',
+          label: 'Energy Mode (n)',
+          min: 0,
+          max: 4,
+          step: 1,
+          value: this.qhoLevel,
+          unit: '',
+          noteTitle: 'Quantum Level n',
+          noteText: 'n = 0 is the Zero-Point Ground State; higher n adds nodes and increases E_n.',
+        },
+        {
+          key: 'qhoOffset',
+          label: 'Coherent Offset x₀',
+          min: -5.0,
+          max: 5.0,
+          step: 0.5,
+          value: this.qhoOffset,
+          unit: 'm',
+          noteTitle: 'Pendulum Pullback',
+          noteText: 'Pull the wavepacket aside in Coherent mode to launch classical-like oscillation.',
         },
       ],
+      toggles: [],
       actions: [
-        { id: 'mode-gradient', label: 'Gradient ∇f' },
-        { id: 'mode-divergence', label: 'Source / Sink ∇·F' },
-        { id: 'mode-curl', label: 'Vortex Curl ∇×F' },
+        { id: 'qho-eigenstate', label: 'Eigenstate ψ_n' },
+        { id: 'qho-superposition', label: 'Beat (ψ₀ + ψ₁)' },
+        { id: 'qho-coherent', label: 'Coherent Packet' },
       ],
     };
   }
@@ -809,6 +1146,17 @@ export class WavesLab implements LabModule {
     } else if (key === 'showTerrain' && typeof value === 'boolean') {
       this.showTerrain = value;
       this.rebuildScene();
+    } else if (key === 'qhoOmega' && typeof value === 'number') {
+      this.qhoOmega = value;
+      this.rebuildScene();
+    } else if (key === 'qhoLevel' && typeof value === 'number') {
+      this.qhoLevel = Math.round(value);
+      this.qhoMode = 'eigenstate';
+      this.rebuildScene();
+    } else if (key === 'qhoOffset' && typeof value === 'number') {
+      this.qhoOffset = value;
+      this.qhoMode = 'coherent';
+      this.rebuildScene();
     }
   }
 
@@ -824,6 +1172,15 @@ export class WavesLab implements LabModule {
       this.rebuildScene();
     } else if (actionId === 'mode-curl') {
       this.fieldMode = 'curl';
+      this.rebuildScene();
+    } else if (actionId === 'qho-eigenstate') {
+      this.qhoMode = 'eigenstate';
+      this.rebuildScene();
+    } else if (actionId === 'qho-superposition') {
+      this.qhoMode = 'superposition';
+      this.rebuildScene();
+    } else if (actionId === 'qho-coherent') {
+      this.qhoMode = 'coherent';
       this.rebuildScene();
     }
   }
@@ -932,34 +1289,75 @@ export class WavesLab implements LabModule {
       ];
     }
 
+    if (this.chapterId === 'wave-vectorfield') {
+      return [
+        {
+          labelSimple: 'Field Type',
+          labelPhysics: 'Active Operator',
+          value: this.fieldMode.toUpperCase(),
+          noteTitle: 'Vector Field Mode',
+          noteText: 'Switch between Gradient, Divergence, and Curl below.',
+        },
+        {
+          labelSimple: 'Flow Tracers',
+          labelPhysics: 'Stream Particles',
+          value: String(VF_TRACERS),
+          noteTitle: 'Advected Tracers',
+          noteText: 'Particles carried smoothly by the 2D vector field.',
+        },
+        {
+          labelSimple: 'Grid Arrows',
+          labelPhysics: 'Sample Vectors',
+          value: String(VF_GRID * VF_GRID),
+          noteTitle: 'Vector Lattice',
+          noteText: 'Shows local field direction & magnitude.',
+        },
+        {
+          labelSimple: 'Curl / Divergence',
+          labelPhysics: 'Field Property',
+          value: this.fieldMode === 'curl' ? '∇×F ≠ 0' : this.fieldMode === 'divergence' ? '∇·F ≠ 0' : '∇×(∇f) = 0',
+          noteTitle: 'Vector Identity',
+          noteText: 'Every gradient field has zero curl; pure vortex curl has zero divergence!',
+        },
+      ];
+    }
+
+    const energy = this.qhoSolver.getExpectedEnergy();
+    const meanX = this.qhoSolver.getExpectationX();
+    const spread = this.qhoSolver.getSpreadX();
     return [
       {
-        labelSimple: 'Field Type',
-        labelPhysics: 'Active Operator',
-        value: this.fieldMode.toUpperCase(),
-        noteTitle: 'Vector Field Mode',
-        noteText: 'Switch between Gradient, Divergence, and Curl below.',
+        labelSimple: 'Wave State',
+        labelPhysics: 'Quantum State Mode',
+        value:
+          this.qhoMode === 'eigenstate'
+            ? `Mode n = ${this.qhoLevel}`
+            : this.qhoMode === 'superposition'
+              ? 'Beat ψ₀ + ψ₁'
+              : 'Coherent Packet',
+        noteTitle: 'Active Wavefunction',
+        noteText: 'Eigenstates keep fixed |ψ|²; mixed/coherent states oscillate inside the bowl.',
       },
       {
-        labelSimple: 'Flow Tracers',
-        labelPhysics: 'Stream Particles',
-        value: String(VF_TRACERS),
-        noteTitle: 'Advected Tracers',
-        noteText: 'Particles carried smoothly by the 2D vector field.',
+        labelSimple: 'Total Energy ⟨H⟩',
+        labelPhysics: 'Expectation E',
+        value: `${energy.toFixed(3)} ℏω₀`,
+        noteTitle: 'Quantized Energy',
+        noteText: 'Even n = 0 keeps Zero-Point Energy E₀ = ½ω > 0 by Heisenberg uncertainty!',
       },
       {
-        labelSimple: 'Grid Arrows',
-        labelPhysics: 'Sample Vectors',
-        value: String(VF_GRID * VF_GRID),
-        noteTitle: 'Vector Lattice',
-        noteText: 'Shows local field direction & magnitude.',
+        labelSimple: 'Center Position ⟨x⟩',
+        labelPhysics: 'Expectation ⟨x⟩',
+        value: `${meanX.toFixed(2)} m`,
+        noteTitle: 'Mean Position',
+        noteText: 'Oscillates harmonically when modes beat or when coherent packet is displaced.',
       },
       {
-        labelSimple: 'Curl / Divergence',
-        labelPhysics: 'Field Property',
-        value: this.fieldMode === 'curl' ? '∇×F ≠ 0' : this.fieldMode === 'divergence' ? '∇·F ≠ 0' : '∇×(∇f) = 0',
-        noteTitle: 'Vector Identity',
-        noteText: 'Every gradient field has zero curl; pure vortex curl has zero divergence!',
+        labelSimple: 'Wave Width σ_x',
+        labelPhysics: 'Spread Δx',
+        value: `${spread.toFixed(2)} m`,
+        noteTitle: 'Position Uncertainty',
+        noteText: 'Coherent states oscillate without spreading!',
       },
     ];
   }
@@ -986,10 +1384,17 @@ export class WavesLab implements LabModule {
         tex: String.raw`i\hbar\frac{\partial\psi}{\partial t} = \left(-\frac{\hbar^2}{2m}\frac{\partial^2}{\partial x^2} + V(x)\right)\psi`,
       };
     }
+    if (this.chapterId === 'wave-vectorfield') {
+      return {
+        captionSimple: 'Gradient climbs hills, Divergence bursts out of sources, and Curl swirls in closed vortices.',
+        captionPhysics: 'Vector Calculus Fundamental Operators',
+        tex: String.raw`\nabla f, \quad \nabla\cdot\mathbf{F}, \quad \nabla\times\mathbf{F}`,
+      };
+    }
     return {
-      captionSimple: 'Gradient climbs hills, Divergence bursts out of sources, and Curl swirls in closed vortices.',
-      captionPhysics: 'Vector Calculus Fundamental Operators',
-      tex: String.raw`\nabla f, \quad \nabla\cdot\mathbf{F}, \quad \nabla\times\mathbf{F}`,
+      captionSimple: 'Parabolic trap levels climb in equal steps E_n = (n + ½)ℏω—never resting completely at zero!',
+      captionPhysics: 'Quantum Harmonic Oscillator Spectrum',
+      tex: String.raw`H = \frac{p^2}{2m} + \frac{1}{2}m\omega^2 x^2, \quad E_n = \left(n + \frac{1}{2}\right)\hbar\omega`,
     };
   }
 
@@ -1025,12 +1430,21 @@ export class WavesLab implements LabModule {
         units: ['', '', ''],
       };
     }
+    if (this.chapterId === 'wave-vectorfield') {
+      return {
+        ch1: Math.sin(this.simTime),
+        ch2: Math.cos(this.simTime),
+        ch3: this.fieldMode === 'curl' ? 1 : 0,
+        labels: ['F_x', 'F_z', '|F|'],
+        units: ['', '', ''],
+      };
+    }
     return {
-      ch1: Math.sin(this.simTime),
-      ch2: Math.cos(this.simTime),
-      ch3: this.fieldMode === 'curl' ? 1 : 0,
-      labels: ['F_x', 'F_z', '|F|'],
-      units: ['', '', ''],
+      ch1: this.qhoSolver.getExpectationX(),
+      ch2: this.qhoSolver.getSpreadX(),
+      ch3: this.qhoSolver.getExpectedEnergy(),
+      labels: ['⟨x⟩', 'σ_x', 'E'],
+      units: ['m', 'm', ''],
     };
   }
 
@@ -1040,6 +1454,7 @@ export class WavesLab implements LabModule {
       'wave-standing': 'Vol IV · Standing Wave Harmonics',
       'wave-tunneling': 'Vol IV · Quantum Tunneling (TDSE)',
       'wave-vectorfield': `Vol IV · Vector Field (${this.fieldMode})`,
+      'wave-harmonic': `Vol IV · Harmonic Oscillator (${this.qhoMode})`,
     };
     return { label: names[this.chapterId], color: '#10b981' };
   }
@@ -1070,6 +1485,9 @@ export class WavesLab implements LabModule {
     } else if (this.chapterId === 'wave-vectorfield') {
       const vf = evaluateVectorField(hitPoint.x, hitPoint.z, this.fieldMode);
       metrics.push(`f = ${vf.terrainHeight.toFixed(2)}`, `|F| = ${Math.hypot(vf.fx, vf.fz).toFixed(2)}`);
+    } else if (this.chapterId === 'wave-harmonic') {
+      const vHere = 0.5 * this.qhoOmega * this.qhoOmega * hitPoint.x * hitPoint.x;
+      metrics.push(`V(x) = ${vHere.toFixed(2)}`, `⟨H⟩ = ${this.qhoSolver.getExpectedEnergy().toFixed(2)}`);
     } else {
       metrics.push(`n = ${this.harmonic}`, `λ = ${(44 / this.harmonic).toFixed(1)} m`);
     }
@@ -1094,12 +1512,34 @@ export class WavesLab implements LabModule {
         },
       ];
     }
+    if (this.chapterId === 'wave-harmonic') {
+      return [
+        {
+          id: 'qho-turn-r',
+          label: `Turning ±${this.qhoTurningX.toFixed(1)} m`,
+          accent: '#ec4899',
+          x: this.qhoTurningX,
+          y: 4.2,
+          z: 0,
+          hover: {
+            key: 'qho-turning',
+            title: 'Classical Turning Point',
+            badge: 'FORBIDDEN WALL',
+            accent: '#ec4899',
+            simple: 'Green tails outside these walls show quantum tunneling into classically forbidden regions!',
+            deeper: 'x_turn = √(2E)/ω',
+            metrics: [`±x_turn = ±${this.qhoTurningX.toFixed(2)} m`],
+          },
+        },
+      ];
+    }
     return [];
   }
 
   public getRecommendedCamera(): { position: [number, number, number]; target: [number, number, number] } {
     if (this.chapterId === 'wave-standing') return { position: [0, 5, 19], target: [0, 0, 0] };
     if (this.chapterId === 'wave-tunneling') return { position: [0, 8, 22], target: [0, 2, 0] };
+    if (this.chapterId === 'wave-harmonic') return { position: [0, 8.5, 22], target: [0, 2.5, 0] };
     return { position: [0, 15, 20], target: [0, -0.5, 0] };
   }
 

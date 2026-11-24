@@ -3,11 +3,18 @@ import {
   DEFAULT_G,
   bodyMechanicalEnergy,
   circularSpeed,
+  computeLagrangePoints,
   escapeSpeed,
   gravityPotential,
+  jacobiConstant,
+  rocheEffectiveAccel,
+  rocheEffectivePotential,
   softenedCircularSpeed,
+  stepRotatingThreeBody,
   stepVelocityVerlet,
   type GravityAttractor,
+  type LagrangePointInfo,
+  type LagrangePointName,
   type OrbitalBodyState,
 } from '../physics/gravityPhysics';
 import { createRadialGlowTexture } from '../render/visualAssets';
@@ -21,7 +28,7 @@ import type {
   LabTelemetryCard,
 } from './labModule';
 
-type GravChapterId = 'grav-well' | 'grav-kepler' | 'grav-binary' | 'grav-blackhole';
+type GravChapterId = 'grav-well' | 'grav-kepler' | 'grav-binary' | 'grav-blackhole' | 'grav-lagrange';
 
 interface StudyMeta {
   key: string;
@@ -45,11 +52,20 @@ export class GravityLab implements LabModule {
   private centralMass = 2.0;
   private eccentricity = 0.52;
   private massRatio = 0.75;
+  private lagrangeMu = 0.03;
+  private lagrangeSep = 11.0;
+  private lagrangePreset: 'L4' | 'L5' | 'L2' | 'L1' = 'L4';
   private showVectors = true;
   private showFabric = true;
 
   private attractors: GravityAttractor[] = [];
   private starMeshes: THREE.Mesh[] = [];
+  private lagrangeMarkers: THREE.Mesh[] = [];
+  private lagrangePoints: Record<LagrangePointName, LagrangePointInfo> = computeLagrangePoints(
+    2.91,
+    0.09,
+    11.0,
+  );
   private photonRing: THREE.Mesh | null = null;
   private accretionPoints: THREE.Points | null = null;
   private accretionAngles = new Float32Array(0);
@@ -81,12 +97,21 @@ export class GravityLab implements LabModule {
   private readonly tmpCol = new THREE.Color();
 
   public activate(chapterId: string): void {
-    const valid: GravChapterId[] = ['grav-well', 'grav-kepler', 'grav-binary', 'grav-blackhole'];
+    const valid: GravChapterId[] = [
+      'grav-well',
+      'grav-kepler',
+      'grav-binary',
+      'grav-blackhole',
+      'grav-lagrange',
+    ];
     this.chapterId = valid.includes(chapterId as GravChapterId)
       ? (chapterId as GravChapterId)
       : 'grav-well';
     if (this.chapterId === 'grav-blackhole') {
       this.centralMass = 2.8;
+    } else if (this.chapterId === 'grav-lagrange') {
+      this.lagrangeMu = 0.03;
+      this.lagrangePreset = 'L4';
     } else {
       this.centralMass = 2.0;
     }
@@ -112,6 +137,19 @@ export class GravityLab implements LabModule {
     }
     if (apply.action === 'launchSlingshot') {
       this.spawnProbe('slingshot');
+      return;
+    }
+    let rebuildLagrange = false;
+    if (typeof apply.mu === 'number') {
+      this.lagrangeMu = apply.mu;
+      rebuildLagrange = true;
+    }
+    if (typeof apply.preset === 'string') {
+      this.lagrangePreset = apply.preset as 'L4' | 'L5' | 'L2' | 'L1';
+      rebuildLagrange = true;
+    }
+    if (rebuildLagrange) {
+      this.rebuildScene();
       return;
     }
     if (typeof apply.eccentricity === 'number') {
@@ -146,6 +184,7 @@ export class GravityLab implements LabModule {
     this.disposables = [];
     this.hitTargets = [];
     this.starMeshes = [];
+    this.lagrangeMarkers = [];
     this.trailPts = [];
     this.photonRing = null;
     this.accretionPoints = null;
@@ -162,6 +201,17 @@ export class GravityLab implements LabModule {
   private attachStudy(obj: THREE.Object3D, meta: StudyMeta): void {
     obj.userData.study = meta;
     this.hitTargets.push(obj);
+  }
+
+  private getLagrangeMasses(): [number, number] {
+    const mTot = 3.0;
+    return [mTot * (1 - this.lagrangeMu), mTot * this.lagrangeMu];
+  }
+
+  private rocheSurfaceY(x: number, z: number): number {
+    const [m1, m2] = this.getLagrangeMasses();
+    const phi = rocheEffectivePotential(x, z, m1, m2, this.lagrangeSep, DEFAULT_G, 1.15);
+    return Math.max(-8.5, Math.min(2.2, (phi + 6.5) * 0.22));
   }
 
   private rebuildScene(): void {
@@ -186,13 +236,18 @@ export class GravityLab implements LabModule {
       }),
     );
     this.fabricMesh = new THREE.Mesh(geom, surfaceMat);
+    const isLagrange = this.chapterId === 'grav-lagrange';
     this.attachStudy(this.fabricMesh, {
-      key: 'spacetime-fabric',
-      title: 'Spacetime Curvature Well Φ(r)',
-      badge: 'GRAVITATIONAL POTENTIAL',
-      accent: '#f59e0b',
-      simple: 'Massive objects sink the fabric downward! Steeper slopes pull nearby planets harder toward the center.',
-      deeper: 'Visualizes gravitational potential Φ(r) = −GM/r; force per unit mass equals −∇Φ.',
+      key: isLagrange ? 'roche-fabric' : 'spacetime-fabric',
+      title: isLagrange ? 'Roche Effective Potential Φ_eff(x, z)' : 'Spacetime Curvature Well Φ(r)',
+      badge: isLagrange ? 'ROTATING 3-BODY' : 'GRAVITATIONAL POTENTIAL',
+      accent: isLagrange ? '#10b981' : '#f59e0b',
+      simple: isLagrange
+        ? 'Combines gravity wells from both Star & Planet with outward centrifugal sling in the co-rotating frame!'
+        : 'Massive objects sink the fabric downward! Steeper slopes pull nearby planets harder toward the center.',
+      deeper: isLagrange
+        ? 'Φ_eff = −GM₁/r₁ − GM₂/r₂ − ½Ω²r²; flat saddles (L1–L3) and peaks (L4–L5) form the five Lagrange points.'
+        : 'Visualizes gravitational potential Φ(r) = −GM/r; force per unit mass equals −∇Φ.',
     });
 
     const wireMat = this.track(
@@ -326,6 +381,147 @@ export class GravityLab implements LabModule {
       );
       this.group.add(this.accretionPoints);
       this.spawnProbe('slingshot');
+    } else if (this.chapterId === 'grav-lagrange') {
+      const [m1, m2] = this.getLagrangeMasses();
+      const sep = this.lagrangeSep;
+      const mu = this.lagrangeMu;
+      const x1 = -mu * sep;
+      const x2 = (1 - mu) * sep;
+
+      this.attractors = [
+        { x: x1, y: 0, z: 0, mass: m1, radius: 1.05 },
+        { x: x2, y: 0, z: 0, mass: m2, radius: 0.48 },
+      ];
+
+      // Primary Star M1
+      const starM = new THREE.Mesh(
+        this.track(new THREE.SphereGeometry(1.05, 26, 26)),
+        this.track(
+          new THREE.MeshStandardMaterial({
+            color: 0xfbbf24,
+            emissive: 0xf59e0b,
+            emissiveIntensity: 0.9,
+          }),
+        ),
+      );
+      starM.position.set(x1, 0.35, 0);
+      const starHalo = new THREE.Sprite(
+        this.track(
+          new THREE.SpriteMaterial({
+            map: createRadialGlowTexture('rgba(254,240,138,0.9)', 'rgba(245,158,11,0.25)'),
+            transparent: true,
+            opacity: 0.78,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          }),
+        ),
+      );
+      starHalo.scale.set(4.8, 4.8, 1);
+      starM.add(starHalo);
+      this.attachStudy(starM, {
+        key: 'lagrange-star',
+        title: 'Primary Star M₁',
+        badge: 'HOST STAR',
+        accent: '#fbbf24',
+        simple: 'Anchors most of the rotating system’s mass near the center of mass.',
+        deeper: `Mass fraction 1 − μ = ${(1 - mu).toFixed(3)} at x₁ = ${x1.toFixed(2)}.`,
+      });
+      this.group.add(starM);
+      this.starMeshes.push(starM);
+
+      // Secondary Planet M2
+      const planetM = new THREE.Mesh(
+        this.track(new THREE.SphereGeometry(0.48, 22, 22)),
+        this.track(
+          new THREE.MeshStandardMaterial({
+            color: 0x38bdf8,
+            emissive: 0x0284c7,
+            emissiveIntensity: 0.75,
+          }),
+        ),
+      );
+      planetM.position.set(x2, 0.25, 0);
+      this.attachStudy(planetM, {
+        key: 'lagrange-planet',
+        title: 'Orbiting Planet M₂',
+        badge: 'MASS RATIO μ',
+        accent: '#38bdf8',
+        simple: 'Orbits M₁ synchronously in our co-rotating frame—carving out the local gravity well between L1 and L2.',
+        deeper: `Mass ratio μ = ${mu.toFixed(3)} (Trojan points stable only below Routh cutoff μ_crit ≈ 0.0385).`,
+      });
+      this.group.add(planetM);
+      this.starMeshes.push(planetM);
+
+      // Planet orbital path circle
+      const ringPts: THREE.Vector3[] = [];
+      const orbitR = Math.abs(x2);
+      for (let i = 0; i <= 72; i++) {
+        const th = (i / 72) * Math.PI * 2;
+        ringPts.push(new THREE.Vector3(orbitR * Math.cos(th), 0.1, orbitR * Math.sin(th)));
+      }
+      const orbitRing = new THREE.Line(
+        this.track(new THREE.BufferGeometry().setFromPoints(ringPts)),
+        this.track(new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.28 })),
+      );
+      this.group.add(orbitRing);
+
+      // L1..L5 markers on the Roche surface
+      this.lagrangePoints = computeLagrangePoints(m1, m2, sep);
+      const markerG = this.track(new THREE.OctahedronGeometry(0.36, 0));
+      const notesByPoint: Record<LagrangePointName, { title: string; simple: string; deeper: string }> = {
+        L1: {
+          title: 'L1 Saddle Point (Solar Observatory Spot)',
+          simple: 'Between Star and Planet: planet pulls backward just enough to match your orbital period!',
+          deeper: 'Unstable collinear saddle (home to SOHO & DSCOVR solar wind probes).',
+        },
+        L2: {
+          title: 'L2 Saddle Point (JWST Telescope Spot)',
+          simple: 'Outside the planet in constant shadow alignment—where Webb orbits unobstructed!',
+          deeper: 'Unstable collinear saddle requiring tiny station-keeping burns (JWST / Gaia).',
+        },
+        L3: {
+          title: 'L3 Opposite Saddle Point',
+          simple: 'Hidden directly behind the host star on the opposite side of the planet’s orbit.',
+          deeper: 'Weakly unstable collinear equilibrium at ξ ≈ −1 − 5μ/12.',
+        },
+        L4: {
+          title: 'L4 Leading Trojan Point (+60°)',
+          simple: 'Forms an equilateral triangle with Star & Planet! Coriolis deflection turns it into a basin when μ < 0.0385.',
+          deeper: 'Linearly stable for μ < 0.03852, hosting thousands of Trojan asteroids.',
+        },
+        L5: {
+          title: 'L5 Trailing Trojan Point (−60°)',
+          simple: 'Symmetric triangular twin trailing 60° behind the planet.',
+          deeper: 'Equilateral equilibrium stabilized by Coriolis forces when μ < 0.03852.',
+        },
+      };
+
+      for (const name of ['L1', 'L2', 'L3', 'L4', 'L5'] as LagrangePointName[]) {
+        const pt = this.lagrangePoints[name];
+        const colorHex = pt.stable ? 0x10b981 : name === 'L4' || name === 'L5' ? 0xf59e0b : 0xf43f5e;
+        const mMat = this.track(
+          new THREE.MeshStandardMaterial({
+            color: colorHex,
+            emissive: colorHex,
+            emissiveIntensity: 0.75,
+          }),
+        );
+        const marker = new THREE.Mesh(markerG, mMat);
+        const ySurf = this.rocheSurfaceY(pt.x, pt.z);
+        marker.position.set(pt.x, ySurf + 0.42, pt.z);
+        this.attachStudy(marker, {
+          key: `lagrange-${name}`,
+          title: notesByPoint[name].title,
+          badge: pt.stable ? 'STABLE CORIOLIS' : 'UNSTABLE SADDLE',
+          accent: pt.stable ? '#10b981' : '#f43f5e',
+          simple: notesByPoint[name].simple,
+          deeper: notesByPoint[name].deeper,
+        });
+        this.group.add(marker);
+        this.lagrangeMarkers.push(marker);
+      }
+
+      this.spawnLagrangeProbe(this.lagrangePreset);
     } else {
       // Single central star (Gravity Well or Kepler Ellipse)
       this.attractors = [{ x: 0, y: 0, z: 0, mass: this.centralMass, radius: 1.15 }];
@@ -450,6 +646,30 @@ export class GravityLab implements LabModule {
     }
   }
 
+  private spawnLagrangeProbe(preset: 'L4' | 'L5' | 'L2' | 'L1'): void {
+    this.probeCaptured = false;
+    this.trailPts = [];
+    this.lagrangePreset = preset;
+    const pt = this.lagrangePoints[preset];
+
+    if (preset === 'L4' || preset === 'L5') {
+      this.probe = {
+        pos: { x: pt.x + 0.28, y: 0, z: pt.z + (preset === 'L4' ? 0.16 : -0.16) },
+        vel: { x: 0.04, y: 0, z: 0.08 },
+      };
+    } else if (preset === 'L2') {
+      this.probe = {
+        pos: { x: pt.x + 0.05, y: 0, z: 0.14 },
+        vel: { x: -0.02, y: 0, z: -0.04 },
+      };
+    } else {
+      this.probe = {
+        pos: { x: pt.x - 0.05, y: 0, z: 0.12 },
+        vel: { x: 0.02, y: 0, z: 0.04 },
+      };
+    }
+  }
+
   private updateFabricMesh(): void {
     if (!this.fabricGeom || !this.fabricMesh || !this.fabricWire) return;
     this.fabricMesh.visible = this.showFabric;
@@ -459,15 +679,17 @@ export class GravityLab implements LabModule {
     const posAttr = this.fabricGeom.attributes.position as THREE.BufferAttribute;
     const colAttr = this.fabricGeom.attributes.color as THREE.BufferAttribute;
     const count = posAttr.count;
+    const isLagrange = this.chapterId === 'grav-lagrange';
 
     for (let i = 0; i < count; i++) {
       const x = posAttr.getX(i);
       const z = posAttr.getZ(i);
-      const phi = gravityPotential(x, z, this.attractors, DEFAULT_G, 1.05);
-      const depth = Math.max(-8.8, Math.min(0, phi * 0.16));
+      const depth = isLagrange
+        ? this.rocheSurfaceY(x, z)
+        : Math.max(-8.8, Math.min(0, gravityPotential(x, z, this.attractors, DEFAULT_G, 1.05) * 0.16));
       posAttr.setY(i, depth);
 
-      const t = Math.min(1, -depth / 7.5);
+      const t = Math.max(0, Math.min(1, -depth / 7.5));
       if (t < 0.35) {
         this.tmpCol.copy(this.cFlat).lerp(this.cMid, t / 0.35);
       } else if (t < 0.72) {
@@ -517,29 +739,46 @@ export class GravityLab implements LabModule {
       posAttr.needsUpdate = true;
     }
 
-    // Integrate probe via symplectic Velocity-Verlet
+    // Integrate probe (Rotating 3-Body RK4 for Lagrange, symplectic Verlet otherwise)
     if (!this.probeCaptured) {
       const substeps = 6;
       const h = Math.min(dt, 0.04) / substeps;
-      for (let s = 0; s < substeps; s++) {
-        stepVelocityVerlet(this.probe, this.attractors, h);
-        const r0 = Math.hypot(
-          this.probe.pos.x - this.attractors[0].x,
-          this.probe.pos.z - this.attractors[0].z,
-        );
-        if (this.chapterId === 'grav-blackhole' && r0 < 1.38) {
-          this.probeCaptured = true;
-          break;
+      if (this.chapterId === 'grav-lagrange') {
+        const [m1, m2] = this.getLagrangeMasses();
+        for (let s = 0; s < substeps; s++) {
+          stepRotatingThreeBody(this.probe, m1, m2, this.lagrangeSep, h, DEFAULT_G, 0.35);
+          const rStar = Math.hypot(this.probe.pos.x - this.attractors[0].x, this.probe.pos.z);
+          const rPlanet = Math.hypot(this.probe.pos.x - this.attractors[1].x, this.probe.pos.z);
+          if (rStar < 1.1 || rPlanet < 0.65) {
+            this.probeCaptured = true;
+            break;
+          }
+          if (Math.hypot(this.probe.pos.x, this.probe.pos.z) > 22) {
+            this.spawnLagrangeProbe(this.lagrangePreset);
+            break;
+          }
         }
-        if (Math.hypot(this.probe.pos.x, this.probe.pos.z) > 26) {
-          this.spawnProbe(
-            this.chapterId === 'grav-blackhole'
-              ? 'slingshot'
-              : this.chapterId === 'grav-binary'
-                ? 'binary'
-                : 'escape',
+      } else {
+        for (let s = 0; s < substeps; s++) {
+          stepVelocityVerlet(this.probe, this.attractors, h);
+          const r0 = Math.hypot(
+            this.probe.pos.x - this.attractors[0].x,
+            this.probe.pos.z - this.attractors[0].z,
           );
-          break;
+          if (this.chapterId === 'grav-blackhole' && r0 < 1.38) {
+            this.probeCaptured = true;
+            break;
+          }
+          if (Math.hypot(this.probe.pos.x, this.probe.pos.z) > 26) {
+            this.spawnProbe(
+              this.chapterId === 'grav-blackhole'
+                ? 'slingshot'
+                : this.chapterId === 'grav-binary'
+                  ? 'binary'
+                  : 'escape',
+            );
+            break;
+          }
         }
       }
     }
@@ -548,9 +787,11 @@ export class GravityLab implements LabModule {
 
     const px = this.probe.pos.x;
     const pz = this.probe.pos.z;
-    const py = 0.45;
-    const phiWell = gravityPotential(px, pz, this.attractors, DEFAULT_G, 1.05);
-    const wellY = Math.max(-8.8, Math.min(0, phiWell * 0.16));
+    const wellY =
+      this.chapterId === 'grav-lagrange'
+        ? this.rocheSurfaceY(px, pz)
+        : Math.max(-8.8, Math.min(0, gravityPotential(px, pz, this.attractors, DEFAULT_G, 1.05) * 0.16));
+    const py = this.chapterId === 'grav-lagrange' ? wellY + 0.55 : 0.45;
 
     if (this.probeMesh) {
       this.probeMesh.visible = !this.probeCaptured;
@@ -589,25 +830,92 @@ export class GravityLab implements LabModule {
           this.velArrow.setLength(Math.min(3.5, 0.7 + vLen * 0.42), 0.35, 0.2);
         }
 
-        const a = { x: 0, y: 0, z: 0 };
-        const dx = this.attractors[0].x - px;
-        const dz = this.attractors[0].z - pz;
-        const r2 = dx * dx + dz * dz + 0.85 * 0.85;
-        const fScale = (DEFAULT_G * this.attractors[0].mass) / (r2 * Math.sqrt(r2));
-        a.x = dx * fScale;
-        a.z = dz * fScale;
-        const gVec = new THREE.Vector3(a.x, 0, a.z);
-        const gLen = gVec.length();
-        if (gLen > 1e-4) {
-          this.gravArrow.position.set(px, py, pz);
-          this.gravArrow.setDirection(gVec.clone().divideScalar(gLen));
-          this.gravArrow.setLength(Math.min(3.5, 0.6 + gLen * 0.75), 0.35, 0.2);
+        if (this.chapterId === 'grav-lagrange') {
+          const [m1, m2] = this.getLagrangeMasses();
+          const eff = rocheEffectiveAccel(px, pz, m1, m2, this.lagrangeSep, DEFAULT_G, 0.35);
+          const gVec = new THREE.Vector3(eff.ax, 0, eff.az);
+          const gLen = gVec.length();
+          if (gLen > 1e-4) {
+            this.gravArrow.position.set(px, py, pz);
+            this.gravArrow.setDirection(gVec.divideScalar(gLen));
+            this.gravArrow.setLength(Math.min(3.2, 0.4 + gLen * 0.9), 0.3, 0.18);
+          } else {
+            this.gravArrow.visible = false;
+          }
+        } else {
+          const a = { x: 0, y: 0, z: 0 };
+          const dx = this.attractors[0].x - px;
+          const dz = this.attractors[0].z - pz;
+          const r2 = dx * dx + dz * dz + 0.85 * 0.85;
+          const fScale = (DEFAULT_G * this.attractors[0].mass) / (r2 * Math.sqrt(r2));
+          a.x = dx * fScale;
+          a.z = dz * fScale;
+          const gVec = new THREE.Vector3(a.x, 0, a.z);
+          const gLen = gVec.length();
+          if (gLen > 1e-4) {
+            this.gravArrow.position.set(px, py, pz);
+            this.gravArrow.setDirection(gVec.clone().divideScalar(gLen));
+            this.gravArrow.setLength(Math.min(3.5, 0.6 + gLen * 0.75), 0.35, 0.2);
+          }
         }
       }
     }
   }
 
   public getControlSchema(): LabControlSchema {
+    if (this.chapterId === 'grav-lagrange') {
+      return {
+        sliders: [
+          {
+            key: 'lagrangeMu',
+            label: 'Mass Ratio μ = M₂/(M₁+M₂)',
+            min: 0.005,
+            max: 0.12,
+            step: 0.005,
+            value: this.lagrangeMu,
+            unit: '',
+            noteTitle: 'Routh Stability Ratio',
+            noteText: 'Trojan points L4/L5 remain stable only below μ_crit ≈ 0.0385; above 0.04 they go unstable!',
+          },
+          {
+            key: 'lagrangeSep',
+            label: 'Star–Planet Distance',
+            min: 8.0,
+            max: 14.0,
+            step: 0.5,
+            value: this.lagrangeSep,
+            unit: 'AU',
+            noteTitle: 'Orbital Separation',
+            noteText: 'All five Lagrange points scale proportionally with Star–Planet separation.',
+          },
+        ],
+        toggles: [
+          {
+            key: 'showFabric',
+            label: 'Roche Potential Surface',
+            checked: this.showFabric,
+            swatchColor: '#10b981',
+            noteTitle: 'Co-Rotating Potential',
+            noteText: 'Shows gravitational wells plus outward centrifugal sling Φ_eff.',
+          },
+          {
+            key: 'showVectors',
+            label: 'Velocity & Eff. Force Arrows',
+            checked: this.showVectors,
+            swatchColor: '#00f0ff',
+            noteTitle: 'Rotating-Frame Vectors',
+            noteText: 'Cyan = co-rotating velocity; Gold = effective Roche force −∇Φ_eff.',
+          },
+        ],
+        actions: [
+          { id: 'park-L4', label: 'Park L4 (Trojan)' },
+          { id: 'park-L5', label: 'Park L5 (Trojan)' },
+          { id: 'park-L2', label: 'Park L2 (JWST)' },
+          { id: 'park-L1', label: 'Park L1 (Saddle)' },
+        ],
+      };
+    }
+
     const sliders = [
       {
         key: 'centralMass',
@@ -698,6 +1006,12 @@ export class GravityLab implements LabModule {
     } else if (key === 'massRatio' && typeof value === 'number') {
       this.massRatio = value;
       if (this.attractors[1]) this.attractors[1].mass = this.centralMass * value;
+    } else if (key === 'lagrangeMu' && typeof value === 'number') {
+      this.lagrangeMu = value;
+      this.rebuildScene();
+    } else if (key === 'lagrangeSep' && typeof value === 'number') {
+      this.lagrangeSep = value;
+      this.rebuildScene();
     } else if (key === 'showFabric' && typeof value === 'boolean') {
       this.showFabric = value;
     } else if (key === 'showVectors' && typeof value === 'boolean') {
@@ -710,9 +1024,53 @@ export class GravityLab implements LabModule {
     else if (actionId === 'launchEscape') this.spawnProbe('escape');
     else if (actionId === 'launchBinaryProbe') this.spawnProbe('binary');
     else if (actionId === 'launchSlingshot') this.spawnProbe('slingshot');
+    else if (actionId === 'park-L4') this.spawnLagrangeProbe('L4');
+    else if (actionId === 'park-L5') this.spawnLagrangeProbe('L5');
+    else if (actionId === 'park-L2') this.spawnLagrangeProbe('L2');
+    else if (actionId === 'park-L1') this.spawnLagrangeProbe('L1');
   }
 
   public getTelemetry(): LabTelemetryCard[] {
+    if (this.chapterId === 'grav-lagrange') {
+      const [m1, m2] = this.getLagrangeMasses();
+      const cJ = jacobiConstant(this.probe, m1, m2, this.lagrangeSep, DEFAULT_G, 0.35);
+      const vRot = Math.hypot(this.probe.vel.x, this.probe.vel.z);
+      const triStable = this.lagrangeMu < 0.03852;
+      const point = this.lagrangePoints[this.lagrangePreset];
+      return [
+        {
+          labelSimple: 'Parking Spot',
+          labelPhysics: `Equilibrium ${this.lagrangePreset}`,
+          value: `${this.lagrangePreset} (${point.stable ? 'Stable' : 'Saddle'})`,
+          noteTitle: 'Lagrange Stability',
+          noteText: triStable
+            ? 'For μ < 0.0385, L4 and L5 trap spacecraft smoothly via Coriolis forces!'
+            : 'Above μ ≈ 0.0385, even L4 and L5 become linearly unstable!',
+        },
+        {
+          labelSimple: 'Jacobi Constant C_J',
+          labelPhysics: 'Invariant C_J',
+          value: cJ.toFixed(3),
+          noteTitle: 'Three-Body Constant of Motion',
+          noteText: 'Total mechanical energy in the rotating frame stays conserved by RK4 integration.',
+        },
+        {
+          labelSimple: 'Drift Speed |v_rot|',
+          labelPhysics: 'Co-Rotating |v|',
+          value: `${vRot.toFixed(2)} km/s`,
+          noteTitle: 'Rotating-Frame Velocity',
+          noteText: 'Zero when parked exactly on a Lagrange point; loops slowly around L4/L5.',
+        },
+        {
+          labelSimple: 'Mass Ratio μ',
+          labelPhysics: 'M₂ / (M₁ + M₂)',
+          value: `${this.lagrangeMu.toFixed(3)} ${triStable ? '< 0.0385' : '≥ 0.0385'}`,
+          noteTitle: 'Routh Stability Criterion',
+          noteText: 'Earth–Sun has μ ≈ 3×10⁻⁶ (deeply stable); Jupiter–Sun has μ ≈ 10⁻³.',
+        },
+      ];
+    }
+
     const e = bodyMechanicalEnergy(this.probe, this.attractors);
     const speed = Math.hypot(this.probe.vel.x, this.probe.vel.z);
     const r = Math.hypot(
@@ -773,6 +1131,13 @@ export class GravityLab implements LabModule {
         tex: String.raw`v_{\text{esc}} = \sqrt{\frac{2GM}{r}}, \quad r_s = \frac{2GM}{c^2}`,
       };
     }
+    if (this.chapterId === 'grav-lagrange') {
+      return {
+        captionSimple: 'Gravity + outward spin cancel at L1–L5; Coriolis deflection stabilizes L4 and L5!',
+        captionPhysics: 'Roche Potential & Jacobi Constant (CR3BP)',
+        tex: String.raw`\Phi_{\text{eff}} = -\frac{GM_1}{r_1}-\frac{GM_2}{r_2}-\frac{1}{2}\Omega^2 r^2, \quad C_J = -2\Phi_{\text{eff}} - v^2`,
+      };
+    }
     return {
       captionSimple: 'Mass bends spacetime downward; planets fall freely around the curve unless they hit escape speed.',
       captionPhysics: 'Newtonian Potential Well & Escape Velocity',
@@ -781,6 +1146,17 @@ export class GravityLab implements LabModule {
   }
 
   public getOscilloscopeSample(): LabOscilloscopeSample {
+    if (this.chapterId === 'grav-lagrange') {
+      const [m1, m2] = this.getLagrangeMasses();
+      const cJ = jacobiConstant(this.probe, m1, m2, this.lagrangeSep, DEFAULT_G, 0.35);
+      return {
+        ch1: this.probe.pos.x,
+        ch2: this.probe.pos.z,
+        ch3: cJ,
+        labels: ['x', 'z', 'C_J'],
+        units: ['', '', ''],
+      };
+    }
     const e = bodyMechanicalEnergy(this.probe, this.attractors);
     return {
       ch1: e.kinetic,
@@ -797,6 +1173,7 @@ export class GravityLab implements LabModule {
       'grav-kepler': 'Vol III · Kepler Elliptical Sling',
       'grav-binary': 'Vol III · Binary Star Dance',
       'grav-blackhole': 'Vol III · Black Hole Horizon',
+      'grav-lagrange': `Vol III · Lagrange Points (${this.lagrangePreset})`,
     };
     return { label: names[this.chapterId], color: '#f59e0b' };
   }
@@ -817,6 +1194,35 @@ export class GravityLab implements LabModule {
     }
     if (!study) return null;
 
+    if (this.chapterId === 'grav-lagrange') {
+      const [m1, m2] = this.getLagrangeMasses();
+      const phiEff = rocheEffectivePotential(
+        hitPoint.x,
+        hitPoint.z,
+        m1,
+        m2,
+        this.lagrangeSep,
+        DEFAULT_G,
+        1.15,
+      );
+      const eff = rocheEffectiveAccel(
+        hitPoint.x,
+        hitPoint.z,
+        m1,
+        m2,
+        this.lagrangeSep,
+        DEFAULT_G,
+        1.15,
+      );
+      return {
+        ...study,
+        metrics: [
+          `Φ_eff = ${phiEff.toFixed(2)}`,
+          `|g_eff| = ${Math.hypot(eff.ax, eff.az).toFixed(3)}`,
+        ],
+      };
+    }
+
     const phi = gravityPotential(hitPoint.x, hitPoint.z, this.attractors, DEFAULT_G, 1.05);
     const r = Math.hypot(hitPoint.x, hitPoint.z);
     return {
@@ -826,6 +1232,58 @@ export class GravityLab implements LabModule {
   }
 
   public getCallouts(): LabCalloutPoint[] {
+    if (this.chapterId === 'grav-lagrange') {
+      const pts: LabCalloutPoint[] = [];
+      const labels: Record<'L1' | 'L2' | 'L4' | 'L5', string> = {
+        L1: 'L1 (Solar)',
+        L2: 'L2 (JWST)',
+        L4: 'L4 (Trojan)',
+        L5: 'L5 (Trojan)',
+      };
+      const markerIdxMap: Record<'L1' | 'L2' | 'L4' | 'L5', number> = {
+        L1: 0,
+        L2: 1,
+        L4: 3,
+        L5: 4,
+      };
+      for (const name of ['L1', 'L2', 'L4', 'L5'] as const) {
+        const pt = this.lagrangePoints[name];
+        const ySurf = this.rocheSurfaceY(pt.x, pt.z);
+        const marker = this.lagrangeMarkers[markerIdxMap[name]];
+        pts.push({
+          id: `lag-${name}`,
+          label: labels[name],
+          accent: pt.stable ? '#10b981' : '#f43f5e',
+          x: pt.x,
+          y: ySurf + 1.25,
+          z: pt.z,
+          hover: {
+            ...(marker?.userData.study as StudyMeta),
+            metrics: [
+              `x = ${pt.x.toFixed(2)} AU`,
+              pt.stable ? 'Stable Basin' : 'Unstable Saddle',
+            ],
+          },
+        });
+      }
+      if (!this.probeCaptured) {
+        const py = this.rocheSurfaceY(this.probe.pos.x, this.probe.pos.z) + 1.25;
+        pts.push({
+          id: 'lag-probe',
+          label: 'Spacecraft',
+          accent: '#00f0ff',
+          x: this.probe.pos.x,
+          y: py,
+          z: this.probe.pos.z,
+          hover: {
+            ...(this.probeMesh?.userData.study as StudyMeta),
+            metrics: [`|v_rot| = ${Math.hypot(this.probe.vel.x, this.probe.vel.z).toFixed(2)}`],
+          },
+        });
+      }
+      return pts;
+    }
+
     const pts: LabCalloutPoint[] = [];
     if (this.attractors[0]) {
       pts.push({
@@ -860,6 +1318,7 @@ export class GravityLab implements LabModule {
 
   public getRecommendedCamera(): { position: [number, number, number]; target: [number, number, number] } {
     if (this.chapterId === 'grav-blackhole') return { position: [0, 12, 18], target: [0, -1.5, 0] };
+    if (this.chapterId === 'grav-lagrange') return { position: [0, 17, 23], target: [0, -1.0, 0] };
     return { position: [0, 15, 22], target: [0, -1.2, 0] };
   }
 

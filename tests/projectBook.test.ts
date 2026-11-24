@@ -10,8 +10,8 @@ import type { SegmentKind } from '../src/types/simulation';
 import { NotebookStore } from '../src/ui/annotationsManager';
 
 describe('Project Book Chapters, Study Notes & NotebookStore', () => {
-  it('defines 9 unique chapters with valid bounds and safe hero anchors outside capacitor gaps', () => {
-    expect(PROJECT_CHAPTERS.length).toBe(9);
+  it('defines 10 unique chapters with valid bounds and safe hero anchors outside capacitor gaps', () => {
+    expect(PROJECT_CHAPTERS.length).toBe(10);
     const ids = new Set<string>();
 
     for (const ch of PROJECT_CHAPTERS) {
@@ -39,6 +39,10 @@ describe('Project Book Chapters, Study Notes & NotebookStore', () => {
         expect(insideGap).toBe(false);
       }
     }
+
+    const ch10 = PROJECT_CHAPTERS.find((c) => c.id === 'ch10-ac-wiggle');
+    expect(ch10).toBeDefined();
+    expect(ch10?.setup.sourceMode).toBe('ac');
   });
 
   it('covers all circuit segment kinds, corners, hero electron, and UI study notes', () => {

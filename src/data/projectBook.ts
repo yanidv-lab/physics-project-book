@@ -40,6 +40,7 @@ export interface ProjectChapter {
   subtitle: string;
   difficulty: Difficulty;
   accent: string;
+  isNew?: boolean;
   simpleSummary: string;
   watchFor: string[];
   setup: {
@@ -443,6 +444,47 @@ export const PROJECT_CHAPTERS: ProjectChapter[] = [
     quickActions: [
       { label: 'Raw Co-Moving POV', apply: { cameraMode: 'raw-pov' } },
       { label: 'Smooth Drift Cam', apply: { cameraMode: 'locked-drift' } },
+    ],
+  },
+  {
+    id: 'ch10-ac-wiggle',
+    number: 10,
+    title: 'AC Current: Wiggling in Place',
+    subtitle: 'Alternating Current & Twice-Per-Cycle Heating',
+    difficulty: 'Intermediate',
+    accent: '#06b6d4',
+    isNew: true,
+    simpleSummary:
+      'In AC power, electrons never make trips around the loop! Instead, an alternating electric field shakes them back and forth right where they stand—yet power P = I²R heats the resistor twice every cycle.',
+    watchFor: [
+      'Watch violet E-field arrows and ±σ surface charges flip polarity rhythmically.',
+      'Your tagged electron slides forward then backward around the same stretch of copper wire.',
+      'Notice Heat Power (P = I²R) stays strictly positive even during negative current half-cycles!',
+    ],
+    setup: {
+      topology: 'simple-r',
+      sourceMode: 'ac',
+      voltage: 10.0,
+      acFrequency: 0.75,
+      resistance: 8.0,
+      temperature: 300,
+      scaleCompression: 0,
+      timeDilation: 0.8,
+      cameraMode: 'side-cutaway',
+      heroAnchor: 'wire-before-r1',
+      layers: {
+        electricField: true,
+        surfaceCharge: true,
+        potentialLandscape: true,
+        phononGlow: true,
+        magneticField: true,
+      },
+    },
+    quickActions: [
+      { label: 'Slow AC (0.5 Hz)', apply: { sourceMode: 'ac', acFrequency: 0.5 } },
+      { label: 'Fast AC (2.2 Hz)', apply: { sourceMode: 'ac', acFrequency: 2.2 } },
+      { label: 'Compare DC Flow', apply: { sourceMode: 'dc' } },
+      { label: 'Ride Electron (POV)', apply: { cameraMode: 'locked-drift', heroAnchor: 'wire-before-r1' } },
     ],
   },
 ];

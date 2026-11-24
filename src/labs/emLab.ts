@@ -4,6 +4,7 @@ import {
   computeElectricPotential,
   evaluateEmWave,
   evaluateFaradayCoil,
+  evaluateHallEquilibrium,
   stepBorisLorentz,
   type PointCharge,
   type Vec3Like,
@@ -19,7 +20,7 @@ import type {
   LabTelemetryCard,
 } from './labModule';
 
-type EmChapterId = 'em-dipole' | 'em-lorentz' | 'em-wave' | 'em-faraday';
+type EmChapterId = 'em-dipole' | 'em-lorentz' | 'em-wave' | 'em-faraday' | 'em-hall';
 
 interface StudyMeta {
   key: string;
@@ -38,6 +39,7 @@ interface TestCharge {
 
 const TRAIL_LEN = 120;
 const FARADAY_ELECTRONS = 140;
+const HALL_CARRIERS = 160;
 
 export class EmLab implements LabModule {
   public readonly topicId = 'em' as const;
@@ -102,6 +104,21 @@ export class EmLab implements LabModule {
   private faradayBulbGlowMat: THREE.SpriteMaterial | null = null;
   private lastFaradaySample = evaluateFaradayCoil(0, 1.25, 4.6, 8);
 
+  // Hall Effect params
+  private hallCurrent = 2.6;
+  private hallB = 1.8;
+  private hallCarrierSign: 1 | -1 = -1;
+  private hallShowE = true;
+  private hallBuildup = 0;
+  private hallCarrierMesh: THREE.InstancedMesh | null = null;
+  private hallCarrierCoords = new Float32Array(HALL_CARRIERS * 3);
+  private hallFrontPlateMat: THREE.MeshStandardMaterial | null = null;
+  private hallBackPlateMat: THREE.MeshStandardMaterial | null = null;
+  private hallBArrowShafts: THREE.InstancedMesh | null = null;
+  private hallBArrowHeads: THREE.InstancedMesh | null = null;
+  private hallEArrowShafts: THREE.InstancedMesh | null = null;
+  private hallEArrowHeads: THREE.InstancedMesh | null = null;
+
   private hitTargets: THREE.Object3D[] = [];
   private disposables: Array<{ dispose: () => void }> = [];
 
@@ -114,7 +131,7 @@ export class EmLab implements LabModule {
   private readonly zAxis = new THREE.Vector3(0, 0, 1);
 
   public activate(chapterId: string): void {
-    const valid: EmChapterId[] = ['em-dipole', 'em-lorentz', 'em-wave', 'em-faraday'];
+    const valid: EmChapterId[] = ['em-dipole', 'em-lorentz', 'em-wave', 'em-faraday', 'em-hall'];
     this.chapterId = valid.includes(chapterId as EmChapterId)
       ? (chapterId as EmChapterId)
       : 'em-dipole';
@@ -132,6 +149,22 @@ export class EmLab implements LabModule {
     }
     if (apply.action === 'flipPolarity') {
       this.polarity *= -1;
+      this.rebuildScene();
+      return;
+    }
+    if (apply.action === 'flipB') {
+      this.hallB = -this.hallB;
+      this.hallBuildup = 0;
+      this.updateHallVisuals();
+      return;
+    }
+    if (apply.action === 'replayHall') {
+      this.hallBuildup = 0;
+      return;
+    }
+    if (typeof apply.carrierSign === 'number') {
+      this.hallCarrierSign = apply.carrierSign >= 0 ? 1 : -1;
+      this.hallBuildup = 0;
       this.rebuildScene();
       return;
     }
@@ -186,6 +219,13 @@ export class EmLab implements LabModule {
     this.faradayElectronMesh = null;
     this.faradayBulbMat = null;
     this.faradayBulbGlowMat = null;
+    this.hallCarrierMesh = null;
+    this.hallFrontPlateMat = null;
+    this.hallBackPlateMat = null;
+    this.hallBArrowShafts = null;
+    this.hallBArrowHeads = null;
+    this.hallEArrowShafts = null;
+    this.hallEArrowHeads = null;
   }
 
   private rebuildScene(): void {
@@ -195,7 +235,8 @@ export class EmLab implements LabModule {
     if (this.chapterId === 'em-dipole') this.buildDipoleScene();
     else if (this.chapterId === 'em-lorentz') this.buildLorentzScene();
     else if (this.chapterId === 'em-wave') this.buildEmWaveScene();
-    else this.buildFaradayScene();
+    else if (this.chapterId === 'em-faraday') this.buildFaradayScene();
+    else this.buildHallScene();
   }
 
   private attachStudy(obj: THREE.Object3D, meta: StudyMeta): void {
@@ -737,6 +778,278 @@ export class EmLab implements LabModule {
     bulb.add(bulbGlow);
   }
 
+  // ---------------- 5. HALL EFFECT SENSOR ----------------
+  private buildHallScene(): void {
+    this.hallBuildup = 0;
+
+    // Translucent conductor strip (15 x 1.3 x 4.4)
+    const barG = this.track(new THREE.BoxGeometry(15, 1.3, 4.4));
+    const barM = this.track(
+      new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        transparent: true,
+        opacity: 0.24,
+        roughness: 0.25,
+        metalness: 0.25,
+        depthWrite: false,
+      }),
+    );
+    const barMesh = new THREE.Mesh(barG, barM);
+    this.attachStudy(barMesh, {
+      key: 'hall-bar',
+      title: 'Hall Effect Conductor Slab',
+      badge: 'HALL SENSOR',
+      accent: '#06b6d4',
+      simple:
+        'Conventional current I enters from the left (+X). Perpendicular magnetic field B_y deflects moving carriers sideways until a transverse Hall voltage balances the push!',
+      deeper:
+        'Steady equilibrium: qE_H + q(v_d × B) = 0 yields Hall voltage V_H = (I B_y) / (n q t), directly measuring carrier sign & density.',
+    });
+    this.group.add(barMesh);
+
+    const wireEdges = new THREE.LineSegments(
+      this.track(new THREE.EdgesGeometry(barG)),
+      this.track(new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.55 })),
+    );
+    this.group.add(wireEdges);
+
+    // Sidewall charge buildup plates (+Z front, -Z back)
+    const plateG = this.track(new THREE.BoxGeometry(14.8, 1.24, 0.12));
+    this.hallFrontPlateMat = this.track(
+      new THREE.MeshStandardMaterial({
+        color: 0x3b82f6,
+        emissive: 0x1d4ed8,
+        emissiveIntensity: 0.15,
+        transparent: true,
+        opacity: 0.3,
+        roughness: 0.3,
+      }),
+    );
+    this.hallBackPlateMat = this.track(
+      new THREE.MeshStandardMaterial({
+        color: 0xef4444,
+        emissive: 0xdc2626,
+        emissiveIntensity: 0.15,
+        transparent: true,
+        opacity: 0.3,
+        roughness: 0.3,
+      }),
+    );
+
+    const wallStudy: StudyMeta = {
+      key: 'hall-sidewalls',
+      title: 'Transverse Surface Charge Walls (±σ_H)',
+      badge: 'HALL POLARITY',
+      accent: '#ec4899',
+      simple:
+        'Deflected charges pile up on the front wall and leave opposite charge on the back wall! Notice red (+) vs blue (−) swaps cleanly when switching Electrons ↔ Holes.',
+      deeper:
+        'Sign of V(+Z) − V(−Z) identifies whether majority charge carriers are negative electrons (n-type) or positive holes (p-type).',
+    };
+    const frontPlate = new THREE.Mesh(plateG, this.hallFrontPlateMat);
+    frontPlate.position.set(0, 0, 2.25);
+    this.attachStudy(frontPlate, wallStudy);
+
+    const backPlate = new THREE.Mesh(plateG, this.hallBackPlateMat);
+    backPlate.position.set(0, 0, -2.25);
+    this.attachStudy(backPlate, wallStudy);
+    this.group.add(frontPlate, backPlate);
+
+    // Voltmeter probes connecting Front & Back sidewalls
+    const probeStudy: StudyMeta = {
+      key: 'hall-probe',
+      title: 'Transverse Hall Voltmeter Probe',
+      badge: 'SENSOR READOUT',
+      accent: '#fbbf24',
+      simple:
+        'Measures the steady side-to-side voltage V_H = V(+Z) − V(−Z) created by charge separation inside the magnetic field.',
+      deeper: 'Linear in magnetic flux density B_y and current I, making Hall sensors ideal for contactless magnetometers.',
+    };
+    const tipG = this.track(new THREE.SphereGeometry(0.24, 14, 14));
+    const goldMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xb45309, emissiveIntensity: 0.65 }),
+    );
+    const tipFront = new THREE.Mesh(tipG, goldMat);
+    tipFront.position.set(0, 0, 2.38);
+    const tipBack = new THREE.Mesh(tipG, goldMat);
+    tipBack.position.set(0, 0, -2.38);
+    const meterHead = new THREE.Mesh(
+      this.track(new THREE.BoxGeometry(1.7, 0.72, 1.1)),
+      this.track(
+        new THREE.MeshStandardMaterial({
+          color: 0x0f172a,
+          emissive: 0x0284c7,
+          emissiveIntensity: 0.45,
+          metalness: 0.5,
+        }),
+      ),
+    );
+    meterHead.position.set(0, 3.1, 0);
+    this.attachStudy(tipFront, probeStudy);
+    this.attachStudy(tipBack, probeStudy);
+    this.attachStudy(meterHead, probeStudy);
+
+    const leadG = this.track(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 2.38),
+        new THREE.Vector3(0, 3.1, 0.55),
+        new THREE.Vector3(0, 3.1, -0.55),
+        new THREE.Vector3(0, 0, -2.38),
+      ]),
+    );
+    const leadLine = new THREE.Line(
+      leadG,
+      this.track(new THREE.LineBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.85 })),
+    );
+    this.group.add(tipFront, tipBack, meterHead, leadLine);
+
+    // 15 vertical B_y arrows (5 x 3)
+    const bShaftG = this.track(new THREE.CylinderGeometry(0.036, 0.036, 4.1, 8));
+    const bHeadG = this.track(new THREE.ConeGeometry(0.11, 0.3, 10));
+    const bMat = this.track(new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 }));
+    this.hallBArrowShafts = new THREE.InstancedMesh(bShaftG, bMat, 15);
+    this.hallBArrowHeads = new THREE.InstancedMesh(bHeadG, bMat, 15);
+    this.group.add(this.hallBArrowShafts, this.hallBArrowHeads);
+
+    // 12 transverse E_H arrows (4 x 3) inside bar
+    const eShaftG = this.track(new THREE.CylinderGeometry(0.035, 0.035, 1, 8));
+    eShaftG.rotateX(Math.PI * 0.5);
+    eShaftG.translate(0, 0, 0.5);
+    const eHeadG = this.track(new THREE.ConeGeometry(0.11, 0.28, 10));
+    eHeadG.rotateX(Math.PI * 0.5);
+    const eMat = this.track(new THREE.MeshBasicMaterial({ color: 0xa855f7 }));
+    this.hallEArrowShafts = new THREE.InstancedMesh(eShaftG, eMat, 12);
+    this.hallEArrowHeads = new THREE.InstancedMesh(eHeadG, eMat, 12);
+    this.group.add(this.hallEArrowShafts, this.hallEArrowHeads);
+
+    // 160 instanced charge carriers
+    const cGeom = this.track(new THREE.SphereGeometry(0.11, 10, 10));
+    const isHoles = this.hallCarrierSign > 0;
+    const cMat = this.track(
+      new THREE.MeshBasicMaterial({ color: isHoles ? 0xfb7185 : 0x00f0ff }),
+    );
+    this.hallCarrierMesh = new THREE.InstancedMesh(cGeom, cMat, HALL_CARRIERS);
+    this.hallCarrierMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.hallCarrierMesh.frustumCulled = false;
+    this.attachStudy(this.hallCarrierMesh, {
+      key: 'hall-carriers',
+      title: isHoles ? 'Positive Charge Carriers (+q Holes)' : 'Conduction Electrons (−q)',
+      badge: isHoles ? 'P-TYPE CARRIER' : 'N-TYPE CARRIER',
+      accent: isHoles ? '#fb7185' : '#00f0ff',
+      simple: isHoles
+        ? 'Positive holes drift along +I and get deflected by v × B to the front wall—charging it POSITIVE!'
+        : 'Electrons drift opposite to current I (−X), yet magnetic force (−e)(v × B) bends them to the SAME front wall—charging it NEGATIVE!',
+      deeper: 'F_mag = q(v_d × B) pushes both electrons & holes toward the same edge, so sidewall sign flips with carrier sign!',
+    });
+
+    for (let i = 0; i < HALL_CARRIERS; i++) {
+      this.hallCarrierCoords[i * 3] = -7.3 + Math.random() * 14.6;
+      this.hallCarrierCoords[i * 3 + 1] = (Math.random() - 0.5) * 0.96;
+      this.hallCarrierCoords[i * 3 + 2] = (Math.random() - 0.5) * 3.5;
+    }
+    this.group.add(this.hallCarrierMesh);
+
+    this.updateHallVisuals();
+  }
+
+  private updateHallVisuals(): void {
+    const eq = evaluateHallEquilibrium(this.hallCurrent, this.hallB, this.hallCarrierSign);
+    const active = Math.min(1, this.hallBuildup);
+
+    // Update sidewall plates tint & glow
+    if (this.hallFrontPlateMat && this.hallBackPlateMat) {
+      const vAbs = Math.abs(eq.hallVoltage);
+      if (vAbs < 0.05) {
+        this.hallFrontPlateMat.color.setHex(0x475569);
+        this.hallFrontPlateMat.emissive.setHex(0x1e293b);
+        this.hallFrontPlateMat.emissiveIntensity = 0.05;
+        this.hallFrontPlateMat.opacity = 0.18;
+        this.hallBackPlateMat.color.setHex(0x475569);
+        this.hallBackPlateMat.emissive.setHex(0x1e293b);
+        this.hallBackPlateMat.emissiveIntensity = 0.05;
+        this.hallBackPlateMat.opacity = 0.18;
+      } else {
+        const frontPos = eq.hallVoltage >= 0;
+        const posHex = 0xef4444;
+        const posEmiss = 0xdc2626;
+        const negHex = 0x3b82f6;
+        const negEmiss = 0x2563eb;
+        const strength = active * Math.min(1, vAbs / 3.5);
+
+        this.hallFrontPlateMat.color.setHex(frontPos ? posHex : negHex);
+        this.hallFrontPlateMat.emissive.setHex(frontPos ? posEmiss : negEmiss);
+        this.hallFrontPlateMat.emissiveIntensity = 0.1 + strength * 0.9;
+        this.hallFrontPlateMat.opacity = 0.22 + strength * 0.48;
+
+        this.hallBackPlateMat.color.setHex(frontPos ? negHex : posHex);
+        this.hallBackPlateMat.emissive.setHex(frontPos ? negEmiss : posEmiss);
+        this.hallBackPlateMat.emissiveIntensity = 0.1 + strength * 0.9;
+        this.hallBackPlateMat.opacity = 0.22 + strength * 0.48;
+      }
+    }
+
+    // Orient vertical B_y arrows (5 x 3)
+    if (this.hallBArrowShafts && this.hallBArrowHeads) {
+      const showB = Math.abs(this.hallB) > 0.05;
+      this.hallBArrowShafts.visible = showB;
+      this.hallBArrowHeads.visible = showB;
+      if (showB) {
+        const bSign = this.hallB >= 0 ? 1 : -1;
+        const bScale = 0.55 + Math.min(1.1, Math.abs(this.hallB) / 2.5) * 0.55;
+        let idx = 0;
+        for (let ix = -5; ix <= 5; ix += 2.5) {
+          for (let iz = -1.4; iz <= 1.4; iz += 1.4) {
+            this.tmpPos.set(ix, 0, iz);
+            this.tmpQuat.setFromAxisAngle(this.zAxis, bSign > 0 ? 0 : Math.PI);
+            this.tmpScale.set(1, bScale, 1);
+            this.tmpMat.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
+            this.hallBArrowShafts.setMatrixAt(idx, this.tmpMat);
+
+            this.tmpPos.set(ix, bSign * 2.08 * bScale, iz);
+            this.tmpScale.set(1, 1, 1);
+            this.tmpMat.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
+            this.hallBArrowHeads.setMatrixAt(idx, this.tmpMat);
+            idx++;
+          }
+        }
+        this.hallBArrowShafts.instanceMatrix.needsUpdate = true;
+        this.hallBArrowHeads.instanceMatrix.needsUpdate = true;
+      }
+    }
+
+    // Orient transverse E_H arrows (4 x 3)
+    if (this.hallEArrowShafts && this.hallEArrowHeads) {
+      const eAbs = Math.abs(eq.hallFieldZ);
+      const showE = this.hallShowE && eAbs > 0.04 && active > 0.04;
+      this.hallEArrowShafts.visible = showE;
+      this.hallEArrowHeads.visible = showE;
+      if (showE) {
+        const eDir = eq.hallFieldZ >= 0 ? 1 : -1;
+        const len = Math.min(1.45, (0.28 + eAbs * 0.85) * active);
+        this.tmpDir.set(0, 0, eDir);
+        this.tmpQuat.setFromUnitVectors(this.zAxis, this.tmpDir);
+
+        let idx = 0;
+        for (const ix of [-4.5, -1.5, 1.5, 4.5]) {
+          for (const iz of [-1.15, 0, 1.15]) {
+            this.tmpPos.set(ix, 0, iz).addScaledVector(this.tmpDir, -len * 0.5);
+            this.tmpScale.set(1, 1, len);
+            this.tmpMat.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
+            this.hallEArrowShafts.setMatrixAt(idx, this.tmpMat);
+
+            this.tmpPos.addScaledVector(this.tmpDir, len + 0.08);
+            this.tmpScale.set(1, 1, 1);
+            this.tmpMat.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
+            this.hallEArrowHeads.setMatrixAt(idx, this.tmpMat);
+            idx++;
+          }
+        }
+        this.hallEArrowShafts.instanceMatrix.needsUpdate = true;
+        this.hallEArrowHeads.instanceMatrix.needsUpdate = true;
+      }
+    }
+  }
+
   public update(dt: number): void {
     this.simTime += dt;
 
@@ -940,32 +1253,64 @@ export class EmLab implements LabModule {
       return;
     }
 
-    // 4. Faraday Induction
-    const far = evaluateFaradayCoil(this.simTime, this.faradayFreq, this.magnetAmp, this.coilTurns);
-    this.lastFaradaySample = far;
-    this.magnetGroup.position.z = far.magnetZ;
+    if (this.chapterId === 'em-faraday') {
+      // 4. Faraday Induction
+      const far = evaluateFaradayCoil(this.simTime, this.faradayFreq, this.magnetAmp, this.coilTurns);
+      this.lastFaradaySample = far;
+      this.magnetGroup.position.z = far.magnetZ;
 
-    if (this.faradayElectronMesh) {
-      const driftRate = far.emf * 0.012;
-      const turns = Math.round(this.coilTurns);
-      this.tmpScale.set(1, 1, 1);
-      this.tmpQuat.identity();
-      for (let i = 0; i < FARADAY_ELECTRONS; i++) {
-        this.faradayTheta[i] = ((this.faradayTheta[i] + driftRate * dt) % 1 + 1) % 1;
-        const u = this.faradayTheta[i];
-        const z = -2.8 + u * 5.6;
-        const ang = 2 * Math.PI * turns * u;
-        this.tmpPos.set(2.4 * Math.cos(ang), 2.4 * Math.sin(ang), z);
-        this.tmpMat.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
-        this.faradayElectronMesh.setMatrixAt(i, this.tmpMat);
+      if (this.faradayElectronMesh) {
+        const driftRate = far.emf * 0.012;
+        const turns = Math.round(this.coilTurns);
+        this.tmpScale.set(1, 1, 1);
+        this.tmpQuat.identity();
+        for (let i = 0; i < FARADAY_ELECTRONS; i++) {
+          this.faradayTheta[i] = ((this.faradayTheta[i] + driftRate * dt) % 1 + 1) % 1;
+          const u = this.faradayTheta[i];
+          const z = -2.8 + u * 5.6;
+          const ang = 2 * Math.PI * turns * u;
+          this.tmpPos.set(2.4 * Math.cos(ang), 2.4 * Math.sin(ang), z);
+          this.tmpMat.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
+          this.faradayElectronMesh.setMatrixAt(i, this.tmpMat);
+        }
+        this.faradayElectronMesh.instanceMatrix.needsUpdate = true;
       }
-      this.faradayElectronMesh.instanceMatrix.needsUpdate = true;
+
+      if (this.faradayBulbMat && this.faradayBulbGlowMat) {
+        const powerGlow = Math.min(2.2, (far.emf * far.emf) / 90);
+        this.faradayBulbMat.emissiveIntensity = 0.08 + powerGlow;
+        this.faradayBulbGlowMat.opacity = Math.min(0.85, 0.05 + powerGlow * 0.4);
+      }
+      return;
     }
 
-    if (this.faradayBulbMat && this.faradayBulbGlowMat) {
-      const powerGlow = Math.min(2.2, (far.emf * far.emf) / 90);
-      this.faradayBulbMat.emissiveIntensity = 0.08 + powerGlow;
-      this.faradayBulbGlowMat.opacity = Math.min(0.85, 0.05 + powerGlow * 0.4);
+    // 5. Hall Effect Sensor
+    this.hallBuildup = Math.min(1, this.hallBuildup + dt * 0.72);
+    this.updateHallVisuals();
+
+    if (this.hallCarrierMesh) {
+      const eq = evaluateHallEquilibrium(this.hallCurrent, this.hallB, this.hallCarrierSign);
+      const vx = eq.driftSpeed * 7.2;
+      const transientCurve = (1 - this.hallBuildup) * Math.max(-1.6, Math.min(1.6, eq.magneticDeflectAccelZ * 1.4));
+      const steadyShimmer = Math.sin(this.simTime * 3.5) * 0.02;
+
+      this.tmpQuat.identity();
+      this.tmpScale.set(1, 1, 1);
+      for (let i = 0; i < HALL_CARRIERS; i++) {
+        let x = this.hallCarrierCoords[i * 3] + vx * dt;
+        if (x > 7.3) x -= 14.6;
+        else if (x < -7.3) x += 14.6;
+        this.hallCarrierCoords[i * 3] = x;
+
+        const y = this.hallCarrierCoords[i * 3 + 1];
+        const z0 = this.hallCarrierCoords[i * 3 + 2];
+        const travel = vx >= 0 ? (x + 7.3) / 14.6 : (7.3 - x) / 14.6;
+        const z = Math.max(-1.95, Math.min(1.95, z0 + transientCurve * travel * travel + steadyShimmer));
+        this.tmpPos.set(x, y, z);
+        this.tmpMat.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
+        this.hallCarrierMesh.setMatrixAt(i, this.tmpMat);
+      }
+      this.hallCarrierMesh.instanceMatrix.needsUpdate = true;
     }
   }
 
@@ -1120,44 +1465,92 @@ export class EmLab implements LabModule {
       };
     }
 
+    if (this.chapterId === 'em-faraday') {
+      return {
+        sliders: [
+          {
+            key: 'faradayFreq',
+            label: 'Magnet Speed (f)',
+            min: 0.0,
+            max: 3.0,
+            step: 0.05,
+            value: this.faradayFreq,
+            unit: 'Hz',
+            noteTitle: 'Plunge Frequency',
+            noteText: 'Faster magnet motion creates larger dΦ/dt and brighter lamp glow! Set to 0 Hz to see zero EMF.',
+          },
+          {
+            key: 'coilTurns',
+            label: 'Coil Loops (N)',
+            min: 4,
+            max: 14,
+            step: 1,
+            value: this.coilTurns,
+            unit: 'turns',
+            noteTitle: 'Solenoid Turns',
+            noteText: 'Induced voltage multiplies linearly with the number of copper loops N.',
+          },
+          {
+            key: 'magnetAmp',
+            label: 'Stroke Amplitude',
+            min: 2.0,
+            max: 6.5,
+            step: 0.2,
+            value: this.magnetAmp,
+            unit: 'm',
+            noteTitle: 'Magnet Travel',
+            noteText: 'How far the bar magnet sweeps through the coil.',
+          },
+        ],
+        toggles: [],
+        actions: [{ id: 'resetTime', label: 'Restart Cycle' }],
+      };
+    }
+
     return {
       sliders: [
         {
-          key: 'faradayFreq',
-          label: 'Magnet Speed (f)',
+          key: 'hallCurrent',
+          label: 'Current I (+X)',
           min: 0.0,
-          max: 3.0,
-          step: 0.05,
-          value: this.faradayFreq,
-          unit: 'Hz',
-          noteTitle: 'Plunge Frequency',
-          noteText: 'Faster magnet motion creates larger dΦ/dt and brighter lamp glow! Set to 0 Hz to see zero EMF.',
-        },
-        {
-          key: 'coilTurns',
-          label: 'Coil Loops (N)',
-          min: 4,
-          max: 14,
-          step: 1,
-          value: this.coilTurns,
-          unit: 'turns',
-          noteTitle: 'Solenoid Turns',
-          noteText: 'Induced voltage multiplies linearly with the number of copper loops N.',
-        },
-        {
-          key: 'magnetAmp',
-          label: 'Stroke Amplitude',
-          min: 2.0,
-          max: 6.5,
+          max: 5.0,
           step: 0.2,
-          value: this.magnetAmp,
-          unit: 'm',
-          noteTitle: 'Magnet Travel',
-          noteText: 'How far the bar magnet sweeps through the coil.',
+          value: this.hallCurrent,
+          unit: 'A',
+          noteTitle: 'Driving Current',
+          noteText: 'Controls carrier drift speed through the slab along +X.',
+        },
+        {
+          key: 'hallB',
+          label: 'Magnetic Field B_y',
+          min: -3.0,
+          max: 3.0,
+          step: 0.15,
+          value: this.hallB,
+          unit: 'T',
+          noteTitle: 'Perpendicular Magnetic Field',
+          noteText: 'Higher |B_y| creates stronger Lorentz sideways push and larger Hall voltage V_H.',
         },
       ],
-      toggles: [],
-      actions: [{ id: 'resetTime', label: 'Restart Cycle' }],
+      toggles: [
+        {
+          key: 'hallPositiveCarrier',
+          label: 'p-Type Holes (+q Carriers)',
+          checked: this.hallCarrierSign > 0,
+          swatchColor: '#fb7185',
+          noteTitle: 'Carrier Polarity',
+          noteText: 'Toggle OFF for electrons (−q) or ON for positive holes (+q) — watch V_H flip sign!',
+        },
+        {
+          key: 'hallShowE',
+          label: 'Transverse E_H Arrows',
+          checked: this.hallShowE,
+          swatchColor: '#a855f7',
+          noteTitle: 'Balancing Hall Field',
+          noteText: 'Purple arrows inside the bar pushing carriers back against v × B.',
+        },
+      ],
+      actions: [{ id: 'replayHall', label: 'Replay Charge Buildup' }],
     };
   }
 
@@ -1199,6 +1592,19 @@ export class EmLab implements LabModule {
       this.rebuildScene();
     } else if (key === 'magnetAmp' && typeof value === 'number') {
       this.magnetAmp = value;
+    } else if (key === 'hallCurrent' && typeof value === 'number') {
+      this.hallCurrent = value;
+      this.updateHallVisuals();
+    } else if (key === 'hallB' && typeof value === 'number') {
+      this.hallB = value;
+      this.updateHallVisuals();
+    } else if (key === 'hallPositiveCarrier' && typeof value === 'boolean') {
+      this.hallCarrierSign = value ? 1 : -1;
+      this.hallBuildup = 0;
+      this.rebuildScene();
+    } else if (key === 'hallShowE' && typeof value === 'boolean') {
+      this.hallShowE = value;
+      this.updateHallVisuals();
     }
   }
 
@@ -1209,6 +1615,7 @@ export class EmLab implements LabModule {
       this.rebuildScene();
     } else if (actionId === 'relaunchLorentz') this.resetLorentzParticle();
     else if (actionId === 'resetTime') this.simTime = 0;
+    else if (actionId === 'replayHall') this.hallBuildup = 0;
   }
 
   public getTelemetry(): LabTelemetryCard[] {
@@ -1321,35 +1728,70 @@ export class EmLab implements LabModule {
       ];
     }
 
-    const far = this.lastFaradaySample;
+    if (this.chapterId === 'em-faraday') {
+      const far = this.lastFaradaySample;
+      return [
+        {
+          labelSimple: 'Induced Voltage',
+          labelPhysics: 'EMF ε = −N dΦ/dt',
+          value: `${far.emf.toFixed(2)} V`,
+          noteTitle: 'Induced Voltage',
+          noteText: 'Peaks when the magnet sweeps fastest through the coil.',
+        },
+        {
+          labelSimple: 'Magnetic Flux Φ',
+          labelPhysics: 'Total Flux NΦ',
+          value: `${far.fluxTotal.toFixed(2)} Wb`,
+          noteTitle: 'Linked Flux',
+          noteText: 'Total magnetic field passing through all coil turns.',
+        },
+        {
+          labelSimple: 'Magnet Speed',
+          labelPhysics: 'Velocity v_z',
+          value: `${far.magnetVelZ.toFixed(2)} m/s`,
+          noteTitle: 'Magnet Velocity',
+          noteText: 'Zero speed = zero induced electricity!',
+        },
+        {
+          labelSimple: 'Magnet Position',
+          labelPhysics: 'Axial z(t)',
+          value: `${far.magnetZ.toFixed(2)} m`,
+          noteTitle: 'Magnet Depth',
+          noteText: 'Position along the coil centerline.',
+        },
+      ];
+    }
+
+    const eq = evaluateHallEquilibrium(this.hallCurrent, this.hallB, this.hallCarrierSign);
+    const vMeasured = eq.hallVoltage * this.hallBuildup;
     return [
       {
-        labelSimple: 'Induced Voltage',
-        labelPhysics: 'EMF ε = −N dΦ/dt',
-        value: `${far.emf.toFixed(2)} V`,
-        noteTitle: 'Induced Voltage',
-        noteText: 'Peaks when the magnet sweeps fastest through the coil.',
+        labelSimple: 'Hall Voltage V_H',
+        labelPhysics: 'V(+Z) − V(−Z)',
+        value: `${vMeasured >= 0 ? '+' : ''}${vMeasured.toFixed(2)} mV`,
+        noteTitle: 'Measured Hall Voltage',
+        noteText: 'Sign flips between (−q) n-type electrons and (+q) p-type holes!',
       },
       {
-        labelSimple: 'Magnetic Flux Φ',
-        labelPhysics: 'Total Flux NΦ',
-        value: `${far.fluxTotal.toFixed(2)} Wb`,
-        noteTitle: 'Linked Flux',
-        noteText: 'Total magnetic field passing through all coil turns.',
+        labelSimple: 'Hall E-Field',
+        labelPhysics: 'Transverse E_H,z',
+        value: `${(eq.hallFieldZ * this.hallBuildup).toFixed(2)} mV/m`,
+        noteTitle: 'Balancing Electric Field',
+        noteText: 'Equilibrium field canceling magnetic Lorentz force (qE_H = −q v×B).',
       },
       {
-        labelSimple: 'Magnet Speed',
-        labelPhysics: 'Velocity v_z',
-        value: `${far.magnetVelZ.toFixed(2)} m/s`,
-        noteTitle: 'Magnet Velocity',
-        noteText: 'Zero speed = zero induced electricity!',
+        labelSimple: 'Carrier Type',
+        labelPhysics: 'Majority Sign q',
+        value: this.hallCarrierSign > 0 ? '+q Holes (p-type)' : '−q Electrons (n)',
+        noteTitle: 'Charge Carrier Identity',
+        noteText: 'Switch carrier polarity in controls to prove why the Hall effect identifies semiconductors.',
       },
       {
-        labelSimple: 'Magnet Position',
-        labelPhysics: 'Axial z(t)',
-        value: `${far.magnetZ.toFixed(2)} m`,
-        noteTitle: 'Magnet Depth',
-        noteText: 'Position along the coil centerline.',
+        labelSimple: 'Drift Speed v_d',
+        labelPhysics: 'Axial v_x',
+        value: `${eq.driftSpeed.toFixed(2)} mm/s`,
+        noteTitle: 'Longitudinal Drift',
+        noteText: 'Negative along X for electrons, positive along X for holes.',
       },
     ];
   }
@@ -1376,10 +1818,17 @@ export class EmLab implements LabModule {
         tex: String.raw`\mathbf{E} \perp \mathbf{B}, \quad \mathbf{S} = \frac{1}{\mu_0}\mathbf{E} \times \mathbf{B}`,
       };
     }
+    if (this.chapterId === 'em-faraday') {
+      return {
+        captionSimple: 'Changing magnetic flux through a coil generates voltage—motion is what powers the bulb!',
+        captionPhysics: 'Faraday-Lenz Law of Electromagnetic Induction',
+        tex: String.raw`\mathcal{E}(t) = -N \frac{d\Phi_B}{dt}`,
+      };
+    }
     return {
-      captionSimple: 'Changing magnetic flux through a coil generates voltage—motion is what powers the bulb!',
-      captionPhysics: 'Faraday-Lenz Law of Electromagnetic Induction',
-      tex: String.raw`\mathcal{E}(t) = -N \frac{d\Phi_B}{dt}`,
+      captionSimple: 'Sideways charge pile-up stops when transverse electric push balances the magnetic pull.',
+      captionPhysics: 'Hall Equilibrium & Carrier Polarity',
+      tex: String.raw`q E_H + q v_d B_y = 0 \implies V_H = \frac{I B_y}{n q t}`,
     };
   }
 
@@ -1417,13 +1866,23 @@ export class EmLab implements LabModule {
         units: ['V/m', 'mT', 'W'],
       };
     }
-    const far = this.lastFaradaySample;
+    if (this.chapterId === 'em-faraday') {
+      const far = this.lastFaradaySample;
+      return {
+        ch1: far.emf,
+        ch2: far.fluxTotal,
+        ch3: far.magnetVelZ,
+        labels: ['EMF', 'Φ', 'v_z'],
+        units: ['V', 'Wb', 'm/s'],
+      };
+    }
+    const eq = evaluateHallEquilibrium(this.hallCurrent, this.hallB, this.hallCarrierSign);
     return {
-      ch1: far.emf,
-      ch2: far.fluxTotal,
-      ch3: far.magnetVelZ,
-      labels: ['EMF', 'Φ', 'v_z'],
-      units: ['V', 'Wb', 'm/s'],
+      ch1: eq.hallVoltage * this.hallBuildup,
+      ch2: eq.hallFieldZ * this.hallBuildup,
+      ch3: this.hallB,
+      labels: ['V_H', 'E_H', 'B_y'],
+      units: ['mV', 'mV/m', 'T'],
     };
   }
 
@@ -1433,6 +1892,7 @@ export class EmLab implements LabModule {
       'em-lorentz': 'Vol II · Lorentz Cyclotron Helix',
       'em-wave': 'Vol II · EM Wave Propagation',
       'em-faraday': 'Vol II · Faraday Induction Coil',
+      'em-hall': 'Vol II · Hall Effect Sensor',
     };
     return { label: names[this.chapterId], color: '#a855f7' };
   }
@@ -1464,8 +1924,14 @@ export class EmLab implements LabModule {
     } else if (this.chapterId === 'em-wave') {
       const w = evaluateEmWave(hitPoint.x, this.simTime, this.waveFreq, this.wavelength, 2.8, this.circularPol);
       metrics.push(`|E| = ${Math.hypot(w.E.y, w.E.z).toFixed(2)}`, `S_x = ${w.poynting.x.toFixed(2)}`);
-    } else {
+    } else if (this.chapterId === 'em-faraday') {
       metrics.push(`EMF = ${this.lastFaradaySample.emf.toFixed(2)} V`, `Φ = ${this.lastFaradaySample.fluxTotal.toFixed(2)} Wb`);
+    } else {
+      const eq = evaluateHallEquilibrium(this.hallCurrent, this.hallB, this.hallCarrierSign);
+      metrics.push(
+        `V_H = ${(eq.hallVoltage * this.hallBuildup).toFixed(2)} mV`,
+        `E_H = ${(eq.hallFieldZ * this.hallBuildup).toFixed(2)}`,
+      );
     }
 
     return { ...study, metrics };
@@ -1523,6 +1989,46 @@ export class EmLab implements LabModule {
         },
       ];
     }
+    if (this.chapterId === 'em-hall') {
+      const eq = evaluateHallEquilibrium(this.hallCurrent, this.hallB, this.hallCarrierSign);
+      const vH = eq.hallVoltage * this.hallBuildup;
+      return [
+        {
+          id: 'hall-meter',
+          label: `Hall Voltage: ${vH >= 0 ? '+' : ''}${vH.toFixed(2)} mV`,
+          accent: vH >= 0 ? '#ef4444' : '#3b82f6',
+          x: 0,
+          y: 4.1,
+          z: 0,
+          hover: {
+            key: 'hall-probe',
+            title: 'Transverse Hall Voltmeter',
+            badge: 'SENSOR READOUT',
+            accent: '#fbbf24',
+            simple: 'Shows the voltage difference between the front (+Z) and back (−Z) edges.',
+            deeper: 'V_H = (I B_y) / (n q t)',
+            metrics: [`V_H = ${vH.toFixed(2)} mV`],
+          },
+        },
+        {
+          id: 'hall-wall-front',
+          label: vH >= 0 ? '+ Edge Charge' : '− Edge Charge',
+          accent: vH >= 0 ? '#ef4444' : '#3b82f6',
+          x: 0,
+          y: 1.2,
+          z: 2.35,
+          hover: {
+            key: 'hall-sidewalls',
+            title: 'Front Charge Buildup Wall',
+            badge: 'HALL POLARITY',
+            accent: vH >= 0 ? '#ef4444' : '#3b82f6',
+            simple: 'Majority carriers deflect toward this edge until E_H halts lateral flow.',
+            deeper: 'Sign flips cleanly when toggling p-type (+q) vs n-type (−q).',
+            metrics: [`E_H = ${(eq.hallFieldZ * this.hallBuildup).toFixed(2)} mV/m`],
+          },
+        },
+      ];
+    }
     return [];
   }
 
@@ -1530,6 +2036,7 @@ export class EmLab implements LabModule {
     if (this.chapterId === 'em-dipole') return { position: [0, 10, 17], target: [0, 0, 0] };
     if (this.chapterId === 'em-lorentz') return { position: [12, 8, 13], target: [0, 0, 0] };
     if (this.chapterId === 'em-wave') return { position: [4, 7, 16], target: [0, 0, 0] };
+    if (this.chapterId === 'em-hall') return { position: [0, 11, 16], target: [0, 0, 0] };
     return { position: [9, 6, 11], target: [0, 1.2, 0] };
   }
 

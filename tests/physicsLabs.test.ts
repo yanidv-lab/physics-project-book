@@ -4,16 +4,23 @@ import {
   computeElectricField,
   evaluateEmWave,
   evaluateFaradayCoil,
+  evaluateHallEquilibrium,
   stepBorisLorentz,
 } from '../src/physics/emPhysics';
 import {
+  DEFAULT_G,
   bodyMechanicalEnergy,
   circularSpeed,
+  computeLagrangePoints,
   escapeSpeed,
+  jacobiConstant,
+  rocheEffectiveAccel,
   softenedCircularSpeed,
+  stepRotatingThreeBody,
   stepVelocityVerlet,
 } from '../src/physics/gravityPhysics';
 import {
+  QuantumHarmonicSolver,
   QuantumTunnelingSolver,
   evaluateVectorField,
 } from '../src/physics/quantumWavePhysics';
@@ -96,7 +103,7 @@ describe('Volumes II-IV First-Principles Physics Engines & Catalog', () => {
     expect(curl.fz).toBeGreaterThan(0);
   });
 
-  it('Book Catalog defines 4 volumes and 21 unique chapters, and NotebookStore persists WorldPins', () => {
+  it('Book Catalog defines 4 volumes and 25 unique chapters, and NotebookStore persists WorldPins', () => {
     expect(BOOK_VOLUMES.length).toBe(4);
     const chIds = new Set<string>();
     let total = 0;
@@ -108,12 +115,91 @@ describe('Volumes II-IV First-Principles Physics Engines & Catalog', () => {
         total++;
       }
     }
-    expect(total).toBe(21);
+    expect(total).toBe(25);
 
     const store = new NotebookStore();
     const wp = store.addWorldPin('gravity', 'grav-well', 'central-star', 0, 1, 0, 'Heavy Star', 'Curves spacetime', 'gold');
     expect(store.getWorldPinsForChapter('gravity', 'grav-well').some((p) => p.id === wp.id)).toBe(true);
     expect(store.exportMarkdown()).toContain('Heavy Star');
     expect(store.deleteWorldPin(wp.id)).toBe(true);
+  });
+
+  it('Hall equilibrium cancels magnetic force and flips voltage sign between electrons and holes', () => {
+    const I = 3.0;
+    const By = 1.8;
+    const W = 4.4;
+    const T = 1.3;
+    const n = 1.0;
+
+    const eSample = evaluateHallEquilibrium(I, By, -1, W, T, n);
+    const hSample = evaluateHallEquilibrium(I, By, 1, W, T, n);
+
+    expect(Math.abs(-1 * eSample.hallFieldZ + eSample.magneticDeflectAccelZ)).toBeLessThan(1e-12);
+    expect(Math.abs(1 * hSample.hallFieldZ + hSample.magneticDeflectAccelZ)).toBeLessThan(1e-12);
+
+    const expectedMagV = (I * By) / (n * T);
+    expect(eSample.hallVoltage).toBeCloseTo(-expectedMagV, 12);
+    expect(hSample.hallVoltage).toBeCloseTo(expectedMagV, 12);
+    expect(hSample.hallVoltage).toBeCloseTo(-eSample.hallVoltage, 12);
+  });
+
+  it('Lagrange L1-L5 satisfy zero effective acceleration and RK4 conserves Jacobi Constant', () => {
+    const sep = 11.0;
+    const mu = 0.03;
+    const m1 = 3.0 * (1 - mu);
+    const m2 = 3.0 * mu;
+    const pts = computeLagrangePoints(m1, m2, sep);
+
+    for (const key of ['L1', 'L2', 'L3', 'L4', 'L5'] as const) {
+      const pt = pts[key];
+      const acc = rocheEffectiveAccel(pt.x, pt.z, m1, m2, sep, DEFAULT_G, 0.0);
+      expect(Math.abs(acc.ax)).toBeLessThan(1e-5);
+      expect(Math.abs(acc.az)).toBeLessThan(1e-5);
+    }
+
+    const x1 = -mu * sep;
+    const x2 = (1 - mu) * sep;
+    expect(Math.hypot(pts.L4.x - x1, pts.L4.z)).toBeCloseTo(sep, 10);
+    expect(Math.hypot(pts.L4.x - x2, pts.L4.z)).toBeCloseTo(sep, 10);
+    expect(Math.hypot(pts.L5.x - x1, pts.L5.z)).toBeCloseTo(sep, 10);
+    expect(Math.hypot(pts.L5.x - x2, pts.L5.z)).toBeCloseTo(sep, 10);
+
+    const body = {
+      pos: { x: pts.L4.x + 0.25, y: 0, z: pts.L4.z + 0.15 },
+      vel: { x: 0.04, y: 0, z: 0.08 },
+    };
+    const c0 = jacobiConstant(body, m1, m2, sep, DEFAULT_G, 0.0);
+    for (let i = 0; i < 300; i++) {
+      stepRotatingThreeBody(body, m1, m2, sep, 0.02, DEFAULT_G, 0.0);
+    }
+    const cEnd = jacobiConstant(body, m1, m2, sep, DEFAULT_G, 0.0);
+    expect(Math.abs(cEnd - c0) / Math.abs(c0)).toBeLessThan(1e-4);
+  });
+
+  it('Quantum Harmonic Oscillator preserves norm, ground energy, stationary n=1, and coherent swinging', () => {
+    const omega = 0.45;
+    const solver = new QuantumHarmonicSolver(180, 0.18);
+
+    // 1. Ground state n=0 energy ~ 0.5 * omega
+    solver.reset('eigenstate', 0, omega, 0);
+    expect(Math.abs(solver.getNorm() - 1.0)).toBeLessThan(1e-6);
+    const e0 = solver.getExpectedEnergy();
+    expect(Math.abs(e0 - 0.5 * omega) / (0.5 * omega)).toBeLessThan(0.02);
+
+    // 2. Stationary n=1 eigenstate keeps <x> ~ 0 and norm ~ 1
+    solver.reset('eigenstate', 1, omega, 0);
+    for (let i = 0; i < 180; i++) {
+      solver.step(0.035);
+    }
+    expect(Math.abs(solver.getNorm() - 1.0)).toBeLessThan(1e-5);
+    expect(Math.abs(solver.getExpectationX())).toBeLessThan(1e-4);
+
+    // 3. Displaced coherent packet swings to negative <x> across half-period T/2 ~ 6.98
+    solver.reset('coherent', 0, omega, 4.0);
+    for (let i = 0; i < 180; i++) {
+      solver.step(0.038);
+    }
+    expect(Math.abs(solver.getNorm() - 1.0)).toBeLessThan(1e-5);
+    expect(solver.getExpectationX()).toBeLessThan(-2.0);
   });
 });
