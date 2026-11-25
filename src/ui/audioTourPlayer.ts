@@ -1,6 +1,8 @@
 import { getAudioTourForVolume, type AudioTourCue, type VolumeAudioTour } from '../data/audioTours';
 import type { TopicId } from '../types/simulation';
 
+export type AudioPlaybackMode = 'neural-mp3' | 'speech' | 'captions';
+
 export interface AudioTourSnapshot {
   active: boolean;
   playing: boolean;
@@ -12,6 +14,7 @@ export interface AudioTourSnapshot {
   totalCues: number;
   cue: AudioTourCue | null;
   speechSupported: boolean;
+  audioMode: AudioPlaybackMode;
 }
 
 export interface AudioTourCallbacks {
@@ -19,11 +22,65 @@ export interface AudioTourCallbacks {
   onStateChange?: (snapshot: AudioTourSnapshot) => void;
 }
 
+export type SpeechVoiceLike = Pick<
+  SpeechSynthesisVoice,
+  'name' | 'lang' | 'localService' | 'default'
+>;
+
 const PLAYBACK_RATES = [1.0, 1.25, 1.5, 0.85] as const;
 
 /**
+ * Ranks available browser SpeechSynthesis voices so realistic neural/natural
+ * voices beat robotic legacy desktop voices when used as offline fallback.
+ */
+export function pickBestSpeechVoice(
+  voices: ReadonlyArray<SpeechVoiceLike>,
+): SpeechVoiceLike | null {
+  if (!voices.length) return null;
+
+  const scoreVoice = (v: SpeechVoiceLike): number => {
+    const lang = v.lang.toLowerCase();
+    const name = v.name.toLowerCase();
+    let score = 0;
+
+    if (lang === 'en-us') score += 40;
+    else if (lang.startsWith('en-gb') || lang.startsWith('en-au') || lang.startsWith('en-ca')) {
+      score += 32;
+    } else if (lang.startsWith('en')) {
+      score += 24;
+    } else {
+      return -1000;
+    }
+
+    if (/natural|neural|multilingual|online/.test(name)) score += 100;
+    if (/google\s+(us|uk)\s+english/.test(name)) score += 85;
+    else if (/google/.test(name)) score += 70;
+    if (/premium|enhanced|siri|ava|andrew|emma|brian|samantha|daniel|aria/.test(name)) {
+      score += 75;
+    }
+    if (!v.localService) score += 12;
+    if (/microsoft\s+(david|zira|mark)|espeak|festival/.test(name)) score -= 60;
+    if (v.default) score += 2;
+
+    return score;
+  };
+
+  let best: SpeechVoiceLike | null = null;
+  let bestScore = -Infinity;
+  for (const voice of voices) {
+    const s = scoreVoice(voice);
+    if (s > bestScore) {
+      bestScore = s;
+      best = voice;
+    }
+  }
+  return bestScore > -500 ? best : null;
+}
+
+/**
  * Headless state machine for synchronized volume audio tours.
- * Safe in Node/Vitest environments where `window` and `speechSynthesis` are absent.
+ * Plays studio-quality neural MP3 narration first, falling back to the best
+ * available Web Speech voice or reading-pace captions when offline/headless.
  */
 export class AudioTourController {
   private readonly callbacks: AudioTourCallbacks;
@@ -34,10 +91,18 @@ export class AudioTourController {
   private tour: VolumeAudioTour | null = null;
   private cueIndex = 0;
   private runToken = 0;
+  private audioMode: AudioPlaybackMode = 'captions';
+  private audioEl: HTMLAudioElement | null = null;
+  private preloadEl: HTMLAudioElement | null = null;
+  private pausedAudioCueId: string | null = null;
   private fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(callbacks: AudioTourCallbacks = {}) {
     this.callbacks = callbacks;
+  }
+
+  public isNeuralAudioSupported(): boolean {
+    return typeof Audio !== 'undefined';
   }
 
   public isSpeechSupported(): boolean {
@@ -63,13 +128,53 @@ export class AudioTourController {
     this.playing = false;
     this.runToken += 1;
     this.clearTimers();
-    this.cancelSpeech();
+
+    const cue = this.getCurrentCue();
+    if (this.audioMode === 'neural-mp3' && this.audioEl) {
+      this.audioEl.onended = null;
+      this.audioEl.onerror = null;
+      this.audioEl.pause();
+      this.pausedAudioCueId = cue?.id ?? null;
+    } else {
+      this.cancelSpeech();
+      this.pausedAudioCueId = null;
+    }
+
     this.emitState();
   }
 
   public resume(): void {
     if (!this.active || !this.tour || this.playing) return;
     this.playing = true;
+
+    const cue = this.getCurrentCue();
+    if (
+      this.audioMode === 'neural-mp3' &&
+      this.audioEl &&
+      cue &&
+      this.pausedAudioCueId === cue.id
+    ) {
+      this.runToken += 1;
+      const token = this.runToken;
+      this.pausedAudioCueId = null;
+      this.attachAudioHandlers(this.audioEl, token);
+      this.syncAudioElementProperties(this.audioEl);
+      this.emitState();
+
+      try {
+        const playPromise = this.audioEl.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => {
+            if (token !== this.runToken || !this.playing) return;
+            this.speakOrSchedule(token);
+          });
+        }
+        return;
+      } catch {
+        // Fall through to full cue playback
+      }
+    }
+
     this.runCurrentCue(true);
   }
 
@@ -102,6 +207,13 @@ export class AudioTourController {
   public setMuted(muted: boolean): void {
     if (this.muted === muted) return;
     this.muted = muted;
+
+    if (this.audioMode === 'neural-mp3' && this.audioEl) {
+      this.audioEl.muted = muted;
+      this.emitState();
+      return;
+    }
+
     if (this.active && this.playing) {
       this.runToken += 1;
       this.clearTimers();
@@ -124,6 +236,13 @@ export class AudioTourController {
     const idx = PLAYBACK_RATES.indexOf(this.rate as (typeof PLAYBACK_RATES)[number]);
     const nextIdx = (idx + 1) % PLAYBACK_RATES.length;
     this.rate = PLAYBACK_RATES[nextIdx];
+
+    if (this.active && this.audioMode === 'neural-mp3' && this.audioEl) {
+      this.audioEl.playbackRate = this.rate;
+      this.emitState();
+      return this.rate;
+    }
+
     if (this.active && this.playing) {
       this.runCurrentCue(false);
     } else {
@@ -136,7 +255,9 @@ export class AudioTourController {
     this.runToken += 1;
     this.active = false;
     this.playing = false;
+    this.pausedAudioCueId = null;
     this.clearTimers();
+    this.stopActiveAudioElement(true);
     this.cancelSpeech();
     this.emitState();
   }
@@ -158,12 +279,75 @@ export class AudioTourController {
       totalCues: this.tour?.cues.length ?? 0,
       cue,
       speechSupported: this.isSpeechSupported(),
+      audioMode: this.audioMode,
     };
   }
 
   private getCurrentCue(): AudioTourCue | null {
     if (!this.tour) return null;
     return this.tour.cues[this.cueIndex] ?? null;
+  }
+
+  private getClipUrl(cue: AudioTourCue): string {
+    return cue.audioUrl ?? `./audio/tours/${cue.id}.mp3`;
+  }
+
+  private ensureAudioElement(): HTMLAudioElement | null {
+    if (!this.isNeuralAudioSupported()) return null;
+    if (!this.audioEl) {
+      this.audioEl = new Audio();
+      this.audioEl.preload = 'auto';
+    }
+    return this.audioEl;
+  }
+
+  private attachAudioHandlers(el: HTMLAudioElement, token: number): void {
+    el.onended = () => {
+      if (token !== this.runToken || !this.playing) return;
+      this.pausedAudioCueId = null;
+      this.advanceAfterCue();
+    };
+    el.onerror = () => {
+      if (token !== this.runToken || !this.playing) return;
+      this.pausedAudioCueId = null;
+      this.speakOrSchedule(token);
+    };
+  }
+
+  private syncAudioElementProperties(el: HTMLAudioElement): void {
+    el.muted = this.muted;
+    el.playbackRate = this.rate;
+    (el as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true;
+  }
+
+  private stopActiveAudioElement(resetTime: boolean): void {
+    if (!this.audioEl) return;
+    this.audioEl.onended = null;
+    this.audioEl.onerror = null;
+    this.audioEl.pause();
+    if (resetTime) {
+      try {
+        this.audioEl.currentTime = 0;
+      } catch {
+        // Ignore if no media loaded yet
+      }
+    }
+  }
+
+  private preloadNextCue(): void {
+    if (!this.isNeuralAudioSupported() || !this.tour) return;
+    const nextCue = this.tour.cues[this.cueIndex + 1];
+    if (!nextCue) return;
+    if (!this.preloadEl) {
+      this.preloadEl = new Audio();
+      this.preloadEl.preload = 'auto';
+    }
+    const nextUrl = this.getClipUrl(nextCue);
+    const tail = nextUrl.replace(/^\.\//, '/');
+    if (!this.preloadEl.src.endsWith(tail)) {
+      this.preloadEl.src = nextUrl;
+      this.preloadEl.load();
+    }
   }
 
   private runCurrentCue(triggerCueCallback: boolean): void {
@@ -173,23 +357,64 @@ export class AudioTourController {
 
     this.runToken += 1;
     const token = this.runToken;
+    this.pausedAudioCueId = null;
     this.clearTimers();
+    this.stopActiveAudioElement(true);
     this.cancelSpeech();
+
+    if (this.isNeuralAudioSupported()) {
+      this.audioMode = 'neural-mp3';
+    } else if (!this.muted && this.isSpeechSupported()) {
+      this.audioMode = 'speech';
+    } else {
+      this.audioMode = 'captions';
+    }
 
     if (triggerCueCallback) {
       this.callbacks.onCueStart?.(
         this.tour.topicId,
         cue,
         this.cueIndex,
-        this.tour.cues.length
+        this.tour.cues.length,
       );
     }
 
     this.emitState();
 
     if (this.playing) {
-      this.speakOrSchedule(token);
+      this.playCurrentCueAudio(token);
     }
+  }
+
+  private playCurrentCueAudio(token: number): void {
+    const cue = this.getCurrentCue();
+    if (!cue || token !== this.runToken || !this.playing) return;
+
+    const el = this.ensureAudioElement();
+    if (el) {
+      this.audioMode = 'neural-mp3';
+      this.attachAudioHandlers(el, token);
+      this.syncAudioElementProperties(el);
+      el.src = this.getClipUrl(cue);
+      el.currentTime = 0;
+      this.preloadNextCue();
+
+      try {
+        const playPromise = el.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => {
+            if (token !== this.runToken || !this.playing) return;
+            this.pausedAudioCueId = null;
+            this.speakOrSchedule(token);
+          });
+        }
+        return;
+      } catch {
+        // Fall through to speechSynthesis / captions
+      }
+    }
+
+    this.speakOrSchedule(token);
   }
 
   private speakOrSchedule(token: number): void {
@@ -198,9 +423,18 @@ export class AudioTourController {
 
     if (!this.muted && this.isSpeechSupported()) {
       try {
+        this.audioMode = 'speech';
+        this.emitState();
+
         const utterance = new SpeechSynthesisUtterance(cue.narration);
         utterance.lang = 'en-US';
         utterance.rate = this.rate;
+
+        const voices = window.speechSynthesis.getVoices?.() ?? [];
+        const bestVoice = pickBestSpeechVoice(voices);
+        if (bestVoice) {
+          utterance.voice = bestVoice as SpeechSynthesisVoice;
+        }
 
         utterance.onend = () => {
           if (token !== this.runToken || !this.playing) return;
@@ -209,7 +443,6 @@ export class AudioTourController {
 
         utterance.onerror = () => {
           if (token !== this.runToken || !this.playing) return;
-          // Fallback to reading timer if speech synthesis is blocked/unavailable at runtime
           this.scheduleFallbackAdvance(cue, token);
         };
 
@@ -224,6 +457,10 @@ export class AudioTourController {
   }
 
   private scheduleFallbackAdvance(cue: AudioTourCue, token: number): void {
+    if (this.audioMode !== 'captions') {
+      this.audioMode = 'captions';
+      this.emitState();
+    }
     const words = cue.narration.trim().split(/\s+/).filter(Boolean).length;
     const baseMs = Math.max(cue.minDurationMs ?? 3200, Math.round((words / 2.6) * 1000 + 1100));
     const delayMs = Math.max(900, Math.round(baseMs / this.rate));
@@ -243,6 +480,7 @@ export class AudioTourController {
       // Completed final cue cleanly; stay visible so learner sees final state
       this.runToken += 1;
       this.playing = false;
+      this.pausedAudioCueId = null;
       this.clearTimers();
       this.emitState();
     }
@@ -345,12 +583,13 @@ export class AudioTourDockUI {
     this.playBtn.textContent = snapshot.playing ? '⏸ Pause' : '▶ Play';
     this.playBtn.title = snapshot.playing ? 'Pause Tour' : 'Resume Tour';
 
+    const voiceSource =
+      snapshot.audioMode === 'neural-mp3' ? 'Studio Neural Voice' : 'Browser Voice';
     this.muteBtn.textContent = snapshot.muted ? '🔇' : '🔊';
     this.muteBtn.title = snapshot.muted
-      ? 'Unmute Spoken Audio'
-      : 'Mute Voice (Keep Timed Captions)';
+      ? `Unmute ${voiceSource}`
+      : `Mute ${voiceSource} (Keep Timed Captions)`;
 
-    const rateStr = Number.isInteger(snapshot.rate) ? `${snapshot.rate}×` : `${snapshot.rate}×`;
-    this.rateBtn.textContent = rateStr;
+    this.rateBtn.textContent = `${snapshot.rate}×`;
   }
 }

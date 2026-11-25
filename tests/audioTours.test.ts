@@ -1,11 +1,14 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getAudioTourForVolume, VOLUME_AUDIO_TOURS } from '../src/data/audioTours';
 import { BOOK_VOLUMES } from '../src/data/bookCatalog';
-import { AudioTourController } from '../src/ui/audioTourPlayer';
+import { AudioTourController, pickBestSpeechVoice } from '../src/ui/audioTourPlayer';
 
 describe('Synchronized Volume Audio Tours', () => {
-  it('provides a complete choreographed tour for every volume in BOOK_VOLUMES', () => {
+  it('provides a complete choreographed tour with generated neural MP3s for every volume', () => {
     expect(VOLUME_AUDIO_TOURS.length).toBe(BOOK_VOLUMES.length);
+    const audioDir = path.resolve(__dirname, '../public/audio/tours');
 
     for (const vol of BOOK_VOLUMES) {
       const tour = getAudioTourForVolume(vol.id);
@@ -18,6 +21,10 @@ describe('Synchronized Volume Audio Tours', () => {
         expect(cue.title.trim().length).toBeGreaterThan(2);
         expect(cue.actionLabel.trim().length).toBeGreaterThan(3);
         expect(cue.narration.trim().split(/\s+/).length).toBeGreaterThanOrEqual(8);
+
+        const mp3Path = path.join(audioDir, `${cue.id}.mp3`);
+        expect(fs.existsSync(mp3Path), `Missing neural audio clip: ${mp3Path}`).toBe(true);
+        expect(fs.statSync(mp3Path).size).toBeGreaterThan(5000);
 
         if (vol.id === 'circuits' && cue.apply) {
           const a = cue.apply as Record<string, unknown>;
@@ -36,6 +43,54 @@ describe('Synchronized Volume Audio Tours', () => {
         }
       }
     }
+  });
+
+  it('prefers natural/neural speech synthesis voices over legacy desktop voices', () => {
+    const picked = pickBestSpeechVoice([
+      {
+        name: 'Microsoft David Desktop - English (United States)',
+        lang: 'en-US',
+        localService: true,
+        default: true,
+      },
+      {
+        name: 'Microsoft Zira Desktop - English (United States)',
+        lang: 'en-US',
+        localService: true,
+        default: false,
+      },
+      {
+        name: 'Google US English',
+        lang: 'en-US',
+        localService: false,
+        default: false,
+      },
+      {
+        name: 'Microsoft Andrew Online (Natural) - English (United States)',
+        lang: 'en-US',
+        localService: false,
+        default: false,
+      },
+    ]);
+
+    expect(picked?.name).toBe('Microsoft Andrew Online (Natural) - English (United States)');
+
+    const fallbackGoogle = pickBestSpeechVoice([
+      {
+        name: 'Microsoft Zira Desktop - English (United States)',
+        lang: 'en-US',
+        localService: true,
+        default: true,
+      },
+      {
+        name: 'Google US English',
+        lang: 'en-US',
+        localService: false,
+        default: false,
+      },
+    ]);
+
+    expect(fallbackGoogle?.name).toBe('Google US English');
   });
 
   it('controls playback transitions, rate cycling, mute state, and stops cleanly', () => {

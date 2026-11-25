@@ -7,6 +7,8 @@ export interface AudioTourCue {
   title: string;
   actionLabel: string;
   narration: string;
+  /** Optional custom clip URL; defaults to ./audio/tours/<id>.mp3 */
+  audioUrl?: string;
   /** Optional minimum caption hold time in ms when speech synthesis is unavailable or muted. */
   minDurationMs?: number;
   apply?: BookActionParams;
