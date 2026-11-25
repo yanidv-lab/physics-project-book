@@ -341,6 +341,402 @@ export const WAVES_CHAPTERS: BookChapterSummary[] = [
   },
 ];
 
+export const THERMO_CHAPTERS: BookChapterSummary[] = [
+  {
+    id: 'thermo-gas',
+    topicId: 'thermo',
+    number: 1,
+    title: 'Ideal Gas & Maxwell Box',
+    subtitle: 'Kinetic Theory & Piston Pressure',
+    difficulty: 'Beginner',
+    accent: '#f97316',
+    isNew: true,
+    simpleSummary:
+      'Watch 160 gas particles bounce elastically inside a movable piston! Heating the box speeds molecules up while squeezing volume packs collisions closer together—pushing pressure up.',
+    watchFor: [
+      'Compress Volume to 45% to watch wall collision impulse & pressure double.',
+      'Heat the box to 700 K to see fast thermal speed boost pressure linearly.',
+    ],
+    quickActions: [
+      { label: 'Hot 700 K', apply: { temp: 700 } },
+      { label: 'Cold 120 K', apply: { temp: 120 } },
+      { label: 'Squeeze 45%', apply: { vol: 0.45 } },
+    ],
+  },
+  {
+    id: 'thermo-carnot',
+    topicId: 'thermo',
+    number: 2,
+    title: 'Carnot Heat Engine Cycle',
+    subtitle: 'Reversible Work & Second-Law Limit',
+    difficulty: 'Intermediate',
+    accent: '#fbbf24',
+    isNew: true,
+    simpleSummary:
+      'A synchronized cylinder piston and glowing 3D Pressure–Volume loop trace all four strokes of the ideal heat engine. Even a perfect engine cannot exceed η = 1 − T_C/T_H!',
+    watchFor: [
+      'Notice the blue dot tracing clockwise around the orange P–V work loop.',
+      'Boost T_H to 1050 K to watch Carnot efficiency climb steeply.',
+    ],
+    quickActions: [
+      { label: 'High T_H (1050 K)', apply: { tHot: 1050, tCold: 250 } },
+      { label: 'Small ΔT (450/350 K)', apply: { tHot: 450, tCold: 350 } },
+    ],
+  },
+  {
+    id: 'thermo-brownian',
+    topicId: 'thermo',
+    number: 3,
+    title: 'Brownian Motion & Random Walk',
+    subtitle: 'Microscopic Fluctuations & Diffusion',
+    difficulty: 'Beginner',
+    accent: '#38bdf8',
+    isNew: true,
+    simpleSummary:
+      'Uneven impacts from tiny, fast solvent molecules kick a heavy golden pollen grain along a jagged random walk—Einstein’s direct proof that atoms exist!',
+    watchFor: [
+      'Trace the jagged golden path curving unpredictably through empty space.',
+      'Raise Bath Temperature to 650 K to speed up diffusion ⟨r²⟩ = 6Dt.',
+    ],
+    quickActions: [
+      { label: 'Cold Bath (100 K)', apply: { temp: 100 } },
+      { label: 'Boiling Bath (650 K)', apply: { temp: 650 } },
+    ],
+  },
+  {
+    id: 'thermo-entropy',
+    topicId: 'thermo',
+    number: 4,
+    title: 'Entropy & Mixing (Arrow of Time)',
+    subtitle: 'Boltzmann Microstates & Irreversibility',
+    difficulty: 'Intermediate',
+    accent: '#ef4444',
+    isNew: true,
+    simpleSummary:
+      'Hot red molecules sit isolated on the left and cold blue on the right (Entropy = 0). Pull out the divider wall and watch them spontaneously mix toward maximum disorder!',
+    watchFor: [
+      'Watch Shannon/Boltzmann Mixing Entropy climb from 0 toward ln(2) ≈ 0.693.',
+      'Try resetting unmixed states to verify mixing never spontaneously reverses.',
+    ],
+    quickActions: [
+      { label: 'Remove Divider Wall', apply: { action: 'removeDivider' } },
+      { label: 'Reset Unmixed', apply: { action: 'resetEntropy' } },
+    ],
+  },
+];
+
+export const OPTICS_CHAPTERS: BookChapterSummary[] = [
+  {
+    id: 'opt-snell',
+    topicId: 'optics',
+    number: 1,
+    title: "Snell's Law & Internal Reflection",
+    subtitle: 'Refraction Boundary & Fiber Optics',
+    difficulty: 'Beginner',
+    accent: '#ec4899',
+    isNew: true,
+    simpleSummary:
+      'Light bends sharply whenever it crosses between materials of different refractive index. Tilt shallow enough inside glass (n₁ > n₂) and 100% bounces back—how fiber-optic internet traps laser beams!',
+    watchFor: [
+      'Sweep Incident Angle past 41.8° in glass→air to trigger Total Internal Reflection.',
+      'Compare Glass→Air against Air→Water bending toward the normal.',
+    ],
+    quickActions: [
+      { label: 'TIR Glass→Air (55°)', apply: { thetaIncDeg: 55, n1: 1.5, n2: 1.0 } },
+      { label: 'Air→Water (45°)', apply: { thetaIncDeg: 45, n1: 1.0, n2: 1.33 } },
+    ],
+  },
+  {
+    id: 'opt-prism',
+    topicId: 'optics',
+    number: 2,
+    title: 'Chromatic Dispersion Prism',
+    subtitle: 'Cauchy Spectrum Splitting',
+    difficulty: 'Beginner',
+    accent: '#a855f7',
+    isNew: true,
+    simpleSummary:
+      'Glass slows violet light slightly more than red light! When white sunlight slices through a triangular prism, each color refracts at a distinct angle into a vibrant 7-band rainbow.',
+    watchFor: [
+      'Notice violet (415 nm) bends steepest downward while red (670 nm) bends least.',
+    ],
+    quickActions: [
+      { label: 'Steep Entry (58°)', apply: { prismIncDeg: 58 } },
+      { label: 'Shallow Entry (28°)', apply: { prismIncDeg: 28 } },
+    ],
+  },
+  {
+    id: 'opt-lens',
+    topicId: 'optics',
+    number: 3,
+    title: 'Thin Lens Ray Tracer',
+    subtitle: 'Real Images vs. Virtual Magnifiers',
+    difficulty: 'Intermediate',
+    accent: '#38bdf8',
+    isNew: true,
+    simpleSummary:
+      'Trace principal rays from the cyan object through focal points to predict exact magnification and image placement. Slip closer than focal length f and the image flips upright like a magnifying glass!',
+    watchFor: [
+      'Notice emerald Real inverted image (d_o > f) flip to pink Virtual upright image (d_o < f)!',
+    ],
+    quickActions: [
+      { label: 'Real Inverted (d=6.5)', apply: { objectDist: 6.5, focalLength: 3.2 } },
+      { label: 'Virtual Magnifier (d=1.8)', apply: { objectDist: 1.8, focalLength: 3.2 } },
+    ],
+  },
+  {
+    id: 'opt-polar',
+    topicId: 'optics',
+    number: 4,
+    title: "Malus's Law & 3-Polarizer Paradox",
+    subtitle: 'Transverse Wave Projection',
+    difficulty: 'Advanced',
+    accent: '#fbbf24',
+    isNew: true,
+    simpleSummary:
+      'Crossed 0° and 90° polarizing filters block 100% of light—yet slipping a THIRD 45° filter right between them somehow lets 12.5% shine through! Watch the transverse wave rotate step-by-step.',
+    watchFor: [
+      'Toggle Middle 45° Filter OFF (0% output) vs ON (12.5% output)!',
+    ],
+    quickActions: [
+      { label: 'Insert 45° Middle (12.5%)', apply: { useMiddlePol: true, pol2Deg: 45, pol3Deg: 90 } },
+      { label: 'Remove Middle (0% Dark)', apply: { useMiddlePol: false, pol3Deg: 90 } },
+    ],
+  },
+];
+
+export const MECHANICS_CHAPTERS: BookChapterSummary[] = [
+  {
+    id: 'mech-chaos',
+    topicId: 'mechanics',
+    number: 1,
+    title: 'Double Pendulum Chaos',
+    subtitle: 'Deterministic Sensitivity (Butterfly Effect)',
+    difficulty: 'Intermediate',
+    accent: '#38bdf8',
+    isNew: true,
+    simpleSummary:
+      'Two double pendulums start nearly identically—separated by 0.002 rad—governed by identical exact RK4 equations. Watch how quickly their trails split completely!',
+    watchFor: [
+      'Notice Cyan and Pink overlap tightly for the first few swings before diverging sharply.',
+      'Total mechanical energy stays strictly conserved even during wild flips!',
+    ],
+    quickActions: [{ label: 'Reset Twin Pendulums', apply: { action: 'relaunchChaos' } }],
+  },
+  {
+    id: 'mech-coupled',
+    topicId: 'mechanics',
+    number: 2,
+    title: 'Coupled Oscillators & Normal Modes',
+    subtitle: 'Symmetric, Antisymmetric & Quantum-Like Beats',
+    difficulty: 'Intermediate',
+    accent: '#00f0ff',
+    isNew: true,
+    simpleSummary:
+      'Link two masses with three springs: pull them together for symmetric sway, oppose them for fast vibration, or push just one and watch energy trade back and forth completely!',
+    watchFor: [
+      'In Beat Mode, watch one mass stop completely while the other swings at full energy!',
+    ],
+    quickActions: [
+      { label: 'Beat Energy Swap', apply: { coupleMode: 'beat' } },
+      { label: 'Symmetric Mode', apply: { coupleMode: 'symmetric' } },
+      { label: 'Antisymmetric Mode', apply: { coupleMode: 'antisymmetric' } },
+    ],
+  },
+  {
+    id: 'mech-gyro',
+    topicId: 'mechanics',
+    number: 3,
+    title: 'Gyroscope Precession',
+    subtitle: 'Gravity Torque τ = dL/dt',
+    difficulty: 'Intermediate',
+    accent: '#fbbf24',
+    isNew: true,
+    simpleSummary:
+      'Why doesn’t a spinning bike wheel flop to the ground? Gravity’s torque acts sideways on its angular momentum L, steering the axle smoothly around in a horizontal circle!',
+    watchFor: [
+      'Counter-intuitively, spinning FASTER (ω_s = 56) makes horizontal precession SLOWER!',
+    ],
+    quickActions: [
+      { label: 'Slow Spin (Fast Precess)', apply: { gyroSpin: 10 } },
+      { label: 'Fast Spin (Steady Lock)', apply: { gyroSpin: 56 } },
+    ],
+  },
+  {
+    id: 'mech-coriolis',
+    topicId: 'mechanics',
+    number: 4,
+    title: 'Turntable & Coriolis Deflection',
+    subtitle: 'Inertial Straight Lines vs. Rotating Curves',
+    difficulty: 'Beginner',
+    accent: '#10b981',
+    isNew: true,
+    simpleSummary:
+      'Roll a frictionless puck straight across a spinning carousel: from above (Inertial), it moves in a dead-straight line, while from the turntable (Rotating), it loops sideways!',
+    watchFor: [
+      'Flip between Rotating Frame and Inertial Frame to prove Coriolis is pure geometry!',
+    ],
+    quickActions: [
+      { label: 'Rotating View (Curved)', apply: { frame: 'rotating' } },
+      { label: 'Inertial View (Straight)', apply: { frame: 'inertial' } },
+    ],
+  },
+];
+
+export const FLUIDS_CHAPTERS: BookChapterSummary[] = [
+  {
+    id: 'fluid-venturi',
+    topicId: 'fluids',
+    number: 1,
+    title: "Venturi Tube & Bernoulli's Law",
+    subtitle: 'Constricted Continuity & Pressure Drop',
+    difficulty: 'Beginner',
+    accent: '#06b6d4',
+    isNew: true,
+    simpleSummary:
+      'Fluid rushing into a narrow pipe throat must speed up to conserve flow (A₁v₁ = A₂v₂)—and that burst of speed drops static pressure in the center column!',
+    watchFor: [
+      'Compare the short amber pressure column at the tight throat against the tall cyan inlet columns!',
+    ],
+    quickActions: [
+      { label: 'Tight Squeeze (30%)', apply: { throatRatio: 0.3 } },
+      { label: 'Wide Throat (80%)', apply: { throatRatio: 0.8 } },
+    ],
+  },
+  {
+    id: 'fluid-airfoil',
+    topicId: 'fluids',
+    number: 2,
+    title: 'Magnus Circulation & Lift',
+    subtitle: 'Kutta–Joukowski Aerodynamic Lift',
+    difficulty: 'Intermediate',
+    accent: '#f97316',
+    isNew: true,
+    simpleSummary:
+      'Spinning a ball or tilting a wing induces bound circulation Γ: air whips faster over the top surface and slower below—creating an upward net lift arrow!',
+    watchFor: [
+      'Reverse Circulation Γ to −10 and watch the golden Lift arrow invert into downforce!',
+    ],
+    quickActions: [
+      { label: 'Strong Upward Lift (+10)', apply: { circulation: 10 } },
+      { label: 'Downforce (−10)', apply: { circulation: -10 } },
+    ],
+  },
+  {
+    id: 'fluid-vortex',
+    topicId: 'fluids',
+    number: 3,
+    title: 'Kármán Vortex Street',
+    subtitle: 'Wake Instability & Strouhal Shedding',
+    difficulty: 'Intermediate',
+    accent: '#38bdf8',
+    isNew: true,
+    simpleSummary:
+      'Flow past a cylinder breaks symmetry behind the obstacle, peeling off alternating counter-rotating swirls that wobble downwind—the exact wind vibration behind flags and chimneys!',
+    watchFor: [
+      'Follow smoke tracers curving into alternating upper and lower eddies downstream.',
+    ],
+  },
+  {
+    id: 'fluid-wave',
+    topicId: 'fluids',
+    number: 4,
+    title: 'Shallow-Water Soliton Tank',
+    subtitle: 'KdV Nonlinear Wave Collision',
+    difficulty: 'Advanced',
+    accent: '#00f0ff',
+    isNew: true,
+    simpleSummary:
+      'In shallow channels, taller solitary water humps outrun shorter ones! Watch the tall cyan soliton overtake the smaller wave and emerge completely unscathed.',
+    watchFor: [
+      'Notice both pulses keep their exact shape & height after passing straight through each other!',
+    ],
+    quickActions: [
+      { label: 'Tall Fast Wave (3.4m)', apply: { amp1: 3.4 } },
+      { label: 'Restart Collision', apply: { action: 'relaunchSoliton' } },
+    ],
+  },
+];
+
+export const RELATIVITY_CHAPTERS: BookChapterSummary[] = [
+  {
+    id: 'rel-dilation',
+    topicId: 'relativity',
+    number: 1,
+    title: 'Light Clock & Time Dilation',
+    subtitle: 'Invariant Light Speed c & γ Factor',
+    difficulty: 'Beginner',
+    accent: '#c084fc',
+    isNew: true,
+    simpleSummary:
+      'Compare a stationary photon bouncing vertically against one inside a relativistic spaceship tracing a longer diagonal zigzag. Since light speed c stays constant, the ship clock ticks γ× slower!',
+    watchFor: [
+      'Slide Ship Speed β up to 0.90c to watch the moving golden photon lag sharply behind the stationary cyan clock.',
+    ],
+    quickActions: [
+      { label: 'Fast Ship (0.88c)', apply: { beta: 0.88 } },
+      { label: 'Slow Cruise (0.30c)', apply: { beta: 0.3 } },
+    ],
+  },
+  {
+    id: 'rel-lorentz',
+    topicId: 'relativity',
+    number: 2,
+    title: 'Length Contraction & Light Cone',
+    subtitle: 'Minkowski Geometry & Boosted Axes',
+    difficulty: 'Intermediate',
+    accent: '#fbbf24',
+    isNew: true,
+    simpleSummary:
+      'Objects rushing near light speed shrink along their direction of travel, while primed spacetime axes scissor inward toward the 45° golden Light Cone!',
+    watchFor: [
+      'Notice purple ct′ and x′ axes pinch toward the 45° cone boundary without ever crossing c!',
+    ],
+    quickActions: [
+      { label: 'Extreme 0.92c', apply: { beta: 0.92 } },
+      { label: 'Rest Frame 0.0c', apply: { beta: 0.0 } },
+    ],
+  },
+  {
+    id: 'rel-decay',
+    topicId: 'relativity',
+    number: 3,
+    title: 'Radioactive Decay & Half-Life',
+    subtitle: '216-Atom Stochastic Isotope Lattice',
+    difficulty: 'Beginner',
+    accent: '#10b981',
+    isNew: true,
+    simpleSummary:
+      'No single atom knows when it will decay—yet across a 216-atom crystal, emerald parent nuclei transform smoothly along N(t) = N₀ (½)^(t/t₁/₂)!',
+    watchFor: [
+      'Check remaining emerald count vs theoretical curve at 1.0 half-life (~108 left).',
+    ],
+    quickActions: [
+      { label: 'Fast Decay (2.5 s)', apply: { halfLife: 2.5 } },
+      { label: 'Refill 216 Atoms', apply: { action: 'resetDecay' } },
+    ],
+  },
+  {
+    id: 'rel-fission',
+    topicId: 'relativity',
+    number: 4,
+    title: 'Nuclear Chain Reaction & Control',
+    subtitle: 'Criticality k_eff & Boron Rods',
+    difficulty: 'Intermediate',
+    accent: '#a855f7',
+    isNew: true,
+    simpleSummary:
+      'Splitting U-235 emits prompt neutrons that can spark more fissions! Raise Boron control rods for supercritical growth (k > 1) or drop them in to brake safely below 1.0.',
+    watchFor: [
+      'Steer Control Rod Depth smoothly to hold Criticality right around k_eff = 1.00!',
+    ],
+    quickActions: [
+      { label: 'Pull Rods (Supercritical)', apply: { rodInsertion: 0.1 } },
+      { label: 'Drop Rods (SCRAM Brake)', apply: { rodInsertion: 0.9 } },
+    ],
+  },
+];
+
 export const BOOK_VOLUMES: BookVolume[] = [
   {
     id: 'circuits',
@@ -372,34 +768,89 @@ export const BOOK_VOLUMES: BookVolume[] = [
     id: 'em',
     roman: 'Vol. II',
     title: 'Electromagnetism & Light',
-    subtitle: 'Dipoles, Lorentz Spirals, EM Waves & Induction',
+    subtitle: 'Dipoles, Lorentz Spirals, EM Waves & Hall Sensor',
     icon: '🧲',
     accent: '#a855f7',
     description:
-      'See electric and magnetic fields come alive in 3D! Launch test charges, watch cyclotron spirals, inspect orthogonal light waves, and generate current by plunging a magnet.',
+      'See electric and magnetic fields come alive in 3D! Launch test charges, watch cyclotron spirals, inspect light waves, generate Faraday EMF, and test Hall sensors.',
     chapters: EM_CHAPTERS,
   },
   {
     id: 'gravity',
     roman: 'Vol. III',
     title: 'Gravity & Spacetime',
-    subtitle: 'Curved Wells, Kepler Orbits, Binaries & Black Holes',
+    subtitle: 'Wells, Kepler Orbits, Black Holes & Lagrange',
     icon: '🪐',
     accent: '#f59e0b',
     description:
-      'Watch massive stars bend a 3D spacetime fabric! Fire planetary probes, observe Kepler’s energy trade-offs, dance around binary stars, and slingshot past a black hole.',
+      'Watch massive stars bend a 3D spacetime fabric! Fire probes, trace Kepler ellipses, dance around binary stars, slingshot past a black hole, and explore L1–L5.',
     chapters: GRAVITY_CHAPTERS,
   },
   {
     id: 'waves',
     roman: 'Vol. IV',
     title: 'Waves, Fields & Quantum',
-    subtitle: 'Double-Slit, Harmonics, Tunneling & Vector Calculus',
+    subtitle: 'Double-Slit, Tunneling, Vector Calculus & QHO',
     icon: '🌊',
     accent: '#10b981',
     description:
-      'Explore superposition ripples, quantized standing waves, a real-time Schrödinger quantum wavepacket tunneling through walls, and 3D Gradient / Divergence / Curl fields.',
+      'Explore superposition ripples, quantized standing waves, Schrödinger barrier tunneling, 3D vector calculus, and the Quantum Harmonic Oscillator.',
     chapters: WAVES_CHAPTERS,
+  },
+  {
+    id: 'thermo',
+    roman: 'Vol. V',
+    title: 'Thermodynamics & Stat Mech',
+    subtitle: 'Ideal Gas, Carnot Engine, Brownian & Entropy',
+    icon: '🔥',
+    accent: '#f97316',
+    description:
+      'Discover how temperature, pressure, Carnot efficiency, Brownian diffusion, and irreversible entropy emerge from bouncing microscopic molecules.',
+    chapters: THERMO_CHAPTERS,
+  },
+  {
+    id: 'optics',
+    roman: 'Vol. VI',
+    title: 'Optics & Photonics',
+    subtitle: 'Snell TIR, Rainbow Prisms, Lenses & Polarizers',
+    icon: '🌈',
+    accent: '#ec4899',
+    description:
+      'Bend laser beams at refractive boundaries, split white sunlight through a dispersion prism, trace thin-lens images, and unlock the 3-polarizer paradox.',
+    chapters: OPTICS_CHAPTERS,
+  },
+  {
+    id: 'mechanics',
+    roman: 'Vol. VII',
+    title: 'Classical Mechanics & Chaos',
+    subtitle: 'Butterfly Chaos, Normal Modes, Gyros & Coriolis',
+    icon: '⚙️',
+    accent: '#38bdf8',
+    description:
+      'Watch twin double pendulums diverge chaotically, trade energy across coupled springs, spin a precessing gyroscope, and compare inertial vs Coriolis frames.',
+    chapters: MECHANICS_CHAPTERS,
+  },
+  {
+    id: 'fluids',
+    roman: 'Vol. VIII',
+    title: 'Fluid Dynamics & Aero',
+    subtitle: 'Venturi, Magnus Lift, Vortex Street & Solitons',
+    icon: '💨',
+    accent: '#06b6d4',
+    description:
+      'Measure Bernoulli pressure drops in Venturi pipes, generate aerodynamic lift via circulation, shed Kármán vortex streets, and collide KdV water solitons.',
+    chapters: FLUIDS_CHAPTERS,
+  },
+  {
+    id: 'relativity',
+    roman: 'Vol. IX',
+    title: 'Relativity & Nuclear',
+    subtitle: 'Time Dilation, Light Cones, Decay & Fission',
+    icon: '⚛️',
+    accent: '#c084fc',
+    description:
+      'Compare moving light clocks, tilt Minkowski spacetime axes inside a 3D light cone, watch 216 atoms decay randomly, and steer a Uranium-235 chain reaction.',
+    chapters: RELATIVITY_CHAPTERS,
   },
 ];
 

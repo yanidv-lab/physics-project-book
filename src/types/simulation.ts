@@ -1,4 +1,13 @@
-export type TopicId = 'circuits' | 'em' | 'gravity' | 'waves';
+export type TopicId =
+  | 'circuits'
+  | 'em'
+  | 'gravity'
+  | 'waves'
+  | 'thermo'
+  | 'optics'
+  | 'mechanics'
+  | 'fluids'
+  | 'relativity';
 export type TopologyId = 'simple-r' | 'rc' | 'rlc' | 'divider';
 export type SourceMode = 'dc' | 'ac';
 export type CameraMode = 'locked-drift' | 'raw-pov' | 'side-cutaway' | 'macro-overview';

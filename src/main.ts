@@ -5,8 +5,13 @@ import * as THREE from 'three';
 import { getVolumeById, type BookChapterSummary } from './data/bookCatalog';
 import { PROJECT_CHAPTERS, resolveHeroAnchorS } from './data/projectBook';
 import { EmLab } from './labs/emLab';
+import { FluidsLab } from './labs/fluidsLab';
 import { GravityLab } from './labs/gravityLab';
 import type { LabModule } from './labs/labModule';
+import { MechanicsLab } from './labs/mechanicsLab';
+import { OpticsLab } from './labs/opticsLab';
+import { RelativityLab } from './labs/relativityLab';
+import { ThermoLab } from './labs/thermoLab';
 import { WavesLab } from './labs/wavesLab';
 import { createDefaultParams } from './physics/constants';
 import { PathGeometry } from './physics/pathGeometry';
@@ -55,11 +60,16 @@ function bootstrap(): void {
 
   const cameraController = new CameraController(sceneManager);
 
-  // Lazy-created Volume II–IV 3D Labs
+  // Lazy-created Volume II–IX 3D Labs
   const labs: Record<Exclude<TopicId, 'circuits'>, LabModule> = {
     em: new EmLab(),
     gravity: new GravityLab(),
     waves: new WavesLab(),
+    thermo: new ThermoLab(),
+    optics: new OpticsLab(),
+    mechanics: new MechanicsLab(),
+    fluids: new FluidsLab(),
+    relativity: new RelativityLab(),
   };
   let activeTopic: TopicId = 'circuits';
   let activeLab: LabModule | null = null;

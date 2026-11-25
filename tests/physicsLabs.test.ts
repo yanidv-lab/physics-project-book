@@ -103,8 +103,8 @@ describe('Volumes II-IV First-Principles Physics Engines & Catalog', () => {
     expect(curl.fz).toBeGreaterThan(0);
   });
 
-  it('Book Catalog defines 4 volumes and 25 unique chapters, and NotebookStore persists WorldPins', () => {
-    expect(BOOK_VOLUMES.length).toBe(4);
+  it('Book Catalog defines 9 volumes and 45 unique chapters, and NotebookStore persists WorldPins', () => {
+    expect(BOOK_VOLUMES.length).toBe(9);
     const chIds = new Set<string>();
     let total = 0;
     for (const vol of BOOK_VOLUMES) {
@@ -115,7 +115,7 @@ describe('Volumes II-IV First-Principles Physics Engines & Catalog', () => {
         total++;
       }
     }
-    expect(total).toBe(25);
+    expect(total).toBe(45);
 
     const store = new NotebookStore();
     const wp = store.addWorldPin('gravity', 'grav-well', 'central-star', 0, 1, 0, 'Heavy Star', 'Curves spacetime', 'gold');
