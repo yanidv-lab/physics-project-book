@@ -2,7 +2,11 @@ import 'katex/dist/katex.min.css';
 import './styles.css';
 import * as THREE from 'three';
 
-import { getVolumeById, type BookChapterSummary } from './data/bookCatalog';
+import {
+  getVolumeById,
+  type BookActionParams,
+  type BookChapterSummary,
+} from './data/bookCatalog';
 import { PROJECT_CHAPTERS, resolveHeroAnchorS } from './data/projectBook';
 import { EmLab } from './labs/emLab';
 import { FluidsLab } from './labs/fluidsLab';
@@ -32,6 +36,7 @@ import { ProjectBookPanel } from './ui/projectBookPanel';
 import { TooltipManager } from './ui/tooltipManager';
 import { DynamicLabControls } from './ui/dynamicLabControls';
 import { BookCoverModal } from './ui/bookCover';
+import { AudioTourDockUI } from './ui/audioTourPlayer';
 import { PhoneModal } from './ui/phoneModal';
 import type { TopicId, TopologyId } from './types/simulation';
 
@@ -73,6 +78,8 @@ function bootstrap(): void {
   };
   let activeTopic: TopicId = 'circuits';
   let activeLab: LabModule | null = null;
+  let activeCircuitChapterId = 'ch2-bottleneck-heat';
+  let audioTour!: AudioTourDockUI;
 
   const telemetryHud = new TelemetryHUD();
   const oscilloscope = new Oscilloscope(oscCanvas);
@@ -197,6 +204,7 @@ function bootstrap(): void {
     annotations.store.markChapterCompleted(targetChapterId);
 
     if (topicId === 'circuits') {
+      activeCircuitChapterId = targetChapterId;
       activeLab = null;
       circuitGroup.group.visible = true;
       dynamicLabControls.setLab(null);
@@ -338,7 +346,62 @@ function bootstrap(): void {
     onOpenPhoneModal: () => {
       void phoneModal.show();
     },
+    onToggleAudioTour: () => {
+      audioTour.toggleForTopic(activeTopic);
+    },
   });
+
+  const applyChapterCue = (topicId: TopicId, chapterId: string, apply?: BookActionParams): void => {
+    const needsSwitch =
+      topicId !== activeTopic ||
+      (topicId === 'circuits'
+        ? activeCircuitChapterId !== chapterId
+        : activeLab?.getActiveChapterId() !== chapterId);
+
+    if (needsSwitch) {
+      switchTopicAndChapter(topicId, chapterId);
+    }
+    if (!apply) return;
+
+    if (topicId === 'circuits') {
+      const a = apply as Record<string, unknown>;
+      if (typeof a.temperature === 'number') params.temperature = a.temperature;
+      if (typeof a.voltage === 'number') params.voltage = a.voltage;
+      if (typeof a.resistance === 'number') params.resistance = a.resistance;
+      if (typeof a.resistance2 === 'number') params.resistance2 = a.resistance2;
+      if (typeof a.sourceMode === 'string') params.sourceMode = a.sourceMode as 'dc' | 'ac';
+      if (typeof a.acFrequency === 'number') params.acFrequency = a.acFrequency;
+      if (typeof a.rcDischarging === 'boolean') params.rcDischarging = a.rcDischarging;
+      if (typeof a.heroAnchor === 'string') {
+        engine.teleportHero(
+          resolveHeroAnchorS(a.heroAnchor as Parameters<typeof resolveHeroAnchorS>[0], path),
+          path,
+          circuit,
+        );
+      }
+      if (typeof a.cameraMode === 'string') {
+        const cm = a.cameraMode as Parameters<typeof controls.setActiveCameraButton>[0];
+        controls.setActiveCameraButton(cm);
+        cameraController.setMode(cm, path, engine, circuitMeshes, instanced);
+      }
+      controls.syncUI();
+      telemetryHud.update(
+        engine.getTelemetry(circuit, circuit.getState(), path, params),
+        performance.now(),
+        true,
+      );
+    } else if (activeLab) {
+      activeLab.applyQuickAction(apply);
+      dynamicLabControls.render();
+      telemetryHud.updateLab(
+        activeLab.getTelemetry(),
+        activeLab.getFormula(),
+        activeLab.getStatusZonePill(),
+        performance.now(),
+        true,
+      );
+    }
+  };
 
   const bookCover = new BookCoverModal(annotations.store, {
     onSelectVolume: (topicId, chapterId) => {
@@ -346,6 +409,12 @@ function bootstrap(): void {
       if (window.innerWidth <= 900) {
         controls.setMobileSheet('none');
       }
+    },
+    onStartAudioTour: (topicId) => {
+      if (window.innerWidth <= 900) {
+        controls.setMobileSheet('none');
+      }
+      audioTour.startVolume(topicId);
     },
     onOpenPhoneModal: () => {
       void phoneModal.show();
@@ -363,50 +432,28 @@ function bootstrap(): void {
       }
     },
     onQuickAction: (ch, action) => {
-      if (ch.topicId !== activeTopic || (activeLab && activeLab.getActiveChapterId() !== ch.id)) {
-        switchTopicAndChapter(ch.topicId, ch.id);
-      }
-      if (ch.topicId === 'circuits') {
-        const a = action.apply as Record<string, unknown>;
-        if (typeof a.temperature === 'number') params.temperature = a.temperature;
-        if (typeof a.voltage === 'number') params.voltage = a.voltage;
-        if (typeof a.resistance === 'number') params.resistance = a.resistance;
-        if (typeof a.resistance2 === 'number') params.resistance2 = a.resistance2;
-        if (typeof a.sourceMode === 'string') params.sourceMode = a.sourceMode as 'dc' | 'ac';
-        if (typeof a.acFrequency === 'number') params.acFrequency = a.acFrequency;
-        if (typeof a.rcDischarging === 'boolean') params.rcDischarging = a.rcDischarging;
-        if (typeof a.heroAnchor === 'string') {
-          engine.teleportHero(
-            resolveHeroAnchorS(a.heroAnchor as Parameters<typeof resolveHeroAnchorS>[0], path),
-            path,
-            circuit,
-          );
-        }
-        if (typeof a.cameraMode === 'string') {
-          const cm = a.cameraMode as Parameters<typeof controls.setActiveCameraButton>[0];
-          controls.setActiveCameraButton(cm);
-          cameraController.setMode(cm, path, engine, circuitMeshes, instanced);
-        }
-        controls.syncUI();
-        telemetryHud.update(
-          engine.getTelemetry(circuit, circuit.getState(), path, params),
-          performance.now(),
-          true,
-        );
-      } else if (activeLab) {
-        activeLab.applyQuickAction(action.apply);
-        dynamicLabControls.render();
-        telemetryHud.updateLab(
-          activeLab.getTelemetry(),
-          activeLab.getFormula(),
-          activeLab.getStatusZonePill(),
-          performance.now(),
-          true,
-        );
-      }
+      applyChapterCue(ch.topicId, ch.id, action.apply);
     },
     onOpenCover: () => {
       bookCover.show();
+    },
+    onStartAudioTour: (topicId) => {
+      if (window.innerWidth <= 900) {
+        controls.setMobileSheet('none');
+      }
+      audioTour.startVolume(topicId);
+    },
+  });
+
+  audioTour = new AudioTourDockUI({
+    onCueStart: (topicId, cue) => {
+      applyChapterCue(topicId, cue.chapterId, cue.apply);
+      if (window.innerWidth <= 900) {
+        controls.setMobileSheet('none');
+      }
+    },
+    onStateChange: (snapshot) => {
+      controls.setAudioTourActive(snapshot.active);
     },
   });
 

@@ -4,6 +4,7 @@ import { NotebookStore } from './annotationsManager';
 
 export interface BookCoverCallbacks {
   onSelectVolume: (topicId: TopicId, chapterId?: string) => void;
+  onStartAudioTour: (topicId: TopicId) => void;
   onOpenPhoneModal: () => void;
 }
 
@@ -83,12 +84,18 @@ export class BookCoverModal {
       <div class="vol-pills">${pills}</div>
       <div class="vol-footer">
         <button class="vol-open-btn">Open ${vol.roman} Lab →</button>
+        <button class="vol-tour-btn" title="Play synchronized 3D audio explainer">🎧 Audio Tour</button>
       </div>
     `;
 
     (card.querySelector('.vol-open-btn') as HTMLButtonElement).addEventListener('click', () => {
       this.hide();
       this.callbacks.onSelectVolume(vol.id, vol.chapters[0]?.id);
+    });
+
+    (card.querySelector('.vol-tour-btn') as HTMLButtonElement).addEventListener('click', () => {
+      this.hide();
+      this.callbacks.onStartAudioTour(vol.id);
     });
 
     for (const pill of Array.from(card.querySelectorAll<HTMLButtonElement>('.vol-ch-pill'))) {

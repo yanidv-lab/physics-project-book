@@ -15,6 +15,7 @@ export interface ControlCallbacks {
   onLabelsToggle: (visible: boolean) => void;
   onOpenBookCover: () => void;
   onOpenPhoneModal: () => void;
+  onToggleAudioTour: () => void;
 }
 
 function logSliderToResistance(t: number): number {
@@ -47,6 +48,7 @@ export class ControlPanel {
   private readonly resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
 
   private readonly openBookBtn = document.getElementById('open-book-btn') as HTMLButtonElement;
+  private readonly audioTourBtn = document.getElementById('audio-tour-btn') as HTMLButtonElement;
   private readonly openPhoneBtn = document.getElementById('open-phone-btn') as HTMLButtonElement;
   private readonly markBtn = document.getElementById('mark-mode-btn') as HTMLButtonElement;
   private readonly labelsBtn = document.getElementById('labels-btn') as HTMLButtonElement;
@@ -124,6 +126,7 @@ export class ControlPanel {
 
   private bindEvents(): void {
     this.openBookBtn.addEventListener('click', () => this.callbacks.onOpenBookCover());
+    this.audioTourBtn.addEventListener('click', () => this.callbacks.onToggleAudioTour());
     this.openPhoneBtn.addEventListener('click', () => this.callbacks.onOpenPhoneModal());
     this.labResetViewBtn.addEventListener('click', () => this.callbacks.onLabResetView());
 
@@ -366,6 +369,11 @@ export class ControlPanel {
     this.markMode = enabled;
     this.markBtn.classList.toggle('active', enabled);
     this.callbacks.onMarkModeToggle(enabled);
+  }
+
+  public setAudioTourActive(active: boolean): void {
+    this.audioTourBtn.classList.toggle('active', active);
+    this.audioTourBtn.textContent = active ? '🎧 Tour On' : '🎧 Tour';
   }
 
   private togglePause(): void {

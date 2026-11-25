@@ -106,6 +106,9 @@
           </div>
 
           <div class="action-bar">
+            <button id="audio-tour-btn" class="icon-btn audio-tour-toggle-btn" title="Play Synchronized 3D Audio Explainer for Active Volume">
+              🎧 Tour
+            </button>
             <button id="open-phone-btn" class="icon-btn" title="Open QR Code for Mobile">
               📱 Phone
             </button>
@@ -145,12 +148,15 @@
             <div id="book-volume-strip" class="book-volume-strip"></div>
             <div class="book-progress-box">
               <div class="book-progress-head">
-                <button id="book-open-cover-btn" class="chip-btn">All 4 Volumes ▾</button>
+                <button id="book-open-cover-btn" class="chip-btn">All 9 Volumes ▾</button>
                 <span id="book-progress-text" class="mono-val">0 / 9 in Vol. I</span>
               </div>
               <div class="progress-track">
                 <div id="book-progress-fill" class="progress-fill"></div>
               </div>
+              <button id="book-play-tour-btn" class="book-play-tour-btn" title="Play synchronized 3D audio explainer for this volume">
+                🎧 Play Vol. I Audio Tour
+              </button>
               <p class="book-intro">
                 Hover or tap 3D objects for study notes, or use <b>📌 Mark</b> to pin your own notes.
               </p>
@@ -397,6 +403,27 @@
             <canvas id="oscilloscope-canvas" class="hud-canvas" width="296" height="122"></canvas>
           </section>
         </aside>
+
+        <!-- Synchronized 3D Audio Tour Dock -->
+        <section id="audio-tour-bar" class="audio-tour-bar hidden" aria-label="Synchronized Audio Tour">
+          <div class="tour-head">
+            <div class="tour-badges">
+              <span id="tour-volume-badge" class="tour-badge">Vol. I</span>
+              <span id="tour-cue-title" class="tour-title">Audio Explainer</span>
+              <span id="tour-step-pill" class="tour-step-pill">1 / 6</span>
+            </div>
+            <div class="tour-controls">
+              <button id="tour-prev-btn" class="tour-btn" title="Previous Cue">⏮</button>
+              <button id="tour-play-btn" class="tour-btn tour-play-btn" title="Pause Tour">⏸ Pause</button>
+              <button id="tour-next-btn" class="tour-btn" title="Next Cue">⏭</button>
+              <button id="tour-mute-btn" class="tour-btn" title="Mute Voice (Keep Timed Captions)">🔊</button>
+              <button id="tour-rate-btn" class="tour-btn tour-rate-btn" title="Cycle Narration Speed">1×</button>
+              <button id="tour-close-btn" class="tour-btn tour-close-btn" title="Close Audio Tour">✕</button>
+            </div>
+          </div>
+          <div id="tour-action-pill" class="tour-action-pill">⚡ Synced simulation action</div>
+          <p id="tour-caption" class="tour-caption"></p>
+        </section>
 
         <!-- Mobile Bottom Navigation Bar -->
         <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">

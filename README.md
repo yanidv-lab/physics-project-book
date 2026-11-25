@@ -1,6 +1,6 @@
 # Physics Project Book — Interactive 3D Lab
 
-An interactive **9-Volume, 45-Experiment 3D Physics Project Book** built with Three.js, TypeScript, and KaTeX — designed for desktop and mobile exploration with guided observations, Simple/Physics explanations, hover study notes, and persistent study pins.
+An interactive **9-Volume, 45-Experiment 3D Physics Project Book** built with Three.js, TypeScript, and KaTeX — designed for desktop and mobile exploration with **Synchronized 3D Audio Explainer Tours** (narrated voice + live parameter/experiment driving), guided observations, Simple/Physics explanations, hover study notes, and persistent study pins.
 
 - **Live Cloud App (24/7 PC & Mobile):** https://yanidv-lab.github.io/physics-project-book/
 - **Repository:** https://github.com/yanidv-lab/physics-project-book

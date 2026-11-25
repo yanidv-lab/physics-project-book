@@ -1,9 +1,11 @@
 import type { TopicId } from '../types/simulation';
 import { PROJECT_CHAPTERS, type Difficulty } from './projectBook';
 
+export type BookActionParams = Record<string, number | boolean | string>;
+
 export interface BookQuickAction {
   label: string;
-  apply: Record<string, number | boolean | string>;
+  apply: BookActionParams;
 }
 
 export interface BookChapterSummary {

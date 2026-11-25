@@ -12,6 +12,7 @@ export interface ProjectBookCallbacks {
   onLaunchChapter: (chapter: BookChapterSummary) => void;
   onQuickAction: (chapter: BookChapterSummary, action: BookQuickAction) => void;
   onOpenCover: () => void;
+  onStartAudioTour: (topicId: TopicId) => void;
 }
 
 export class ProjectBookPanel {
@@ -22,6 +23,7 @@ export class ProjectBookPanel {
   private readonly progressText = document.getElementById('book-progress-text') as HTMLElement;
   private readonly progressFill = document.getElementById('book-progress-fill') as HTMLElement;
   private readonly coverOpenBtn = document.getElementById('book-open-cover-btn') as HTMLButtonElement;
+  private readonly playTourBtn = document.getElementById('book-play-tour-btn') as HTMLButtonElement;
 
   private activeTopic: TopicId = 'circuits';
   private activeChapterId: string | null = 'ch2-bottleneck-heat';
@@ -30,6 +32,7 @@ export class ProjectBookPanel {
     this.store = store;
     this.callbacks = callbacks;
     this.coverOpenBtn.addEventListener('click', () => this.callbacks.onOpenCover());
+    this.playTourBtn.addEventListener('click', () => this.callbacks.onStartAudioTour(this.activeTopic));
     this.render();
   }
 
@@ -45,6 +48,7 @@ export class ProjectBookPanel {
     const total = vol.chapters.length;
     this.progressText.textContent = `${doneCount} / ${total} in ${vol.roman}`;
     this.progressFill.style.width = `${Math.round((doneCount / Math.max(1, total)) * 100)}%`;
+    this.playTourBtn.textContent = `🎧 Play ${vol.roman} Audio Tour`;
 
     this.volStrip.innerHTML = '';
     for (const v of BOOK_VOLUMES) {
