@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { attachModel } from '../render/modelLibrary';
 import {
   evaluateCylinderPotentialFlow,
   evaluateKarmanWake,
@@ -194,6 +195,7 @@ export class FluidsLab implements LabModule {
         deeper: 'P + ½ρv² = constant along every steady inviscid streamline.',
       });
       this.group.add(bar);
+      void attachModel(bar, 'pressure_column', { fit: 'stretch' });
       this.gaugeBars.push(bar);
     }
   }
@@ -223,6 +225,7 @@ export class FluidsLab implements LabModule {
         : 'Kutta-Joukowski Lift Theorem: L′ = ρ U_∞ Γ perpendicular to freestream flow.',
     });
     this.group.add(cyl);
+    void attachModel(cyl, 'flow_cylinder', { fit: 'y' });
 
     if (!isVortexStreet) {
       this.liftArrow = new THREE.ArrowHelper(

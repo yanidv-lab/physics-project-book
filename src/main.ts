@@ -3,10 +3,12 @@ import './styles.css';
 import * as THREE from 'three';
 
 import {
+  BOOK_VOLUMES,
   getVolumeById,
   type BookActionParams,
   type BookChapterSummary,
 } from './data/bookCatalog';
+import { setModelsEnabled } from './render/modelLibrary';
 import { PROJECT_CHAPTERS, resolveHeroAnchorS } from './data/projectBook';
 import { EmLab } from './labs/emLab';
 import { FluidsLab } from './labs/fluidsLab';
@@ -461,7 +463,21 @@ function bootstrap(): void {
   cameraController.setMode('locked-drift', path, engine, circuitMeshes, instanced);
   controls.syncUI();
   interaction.setMarkMode(false);
-  bookCover.show();
+
+  // Deep links: ?chapter=<chapter-id> opens a lab directly; ?models=off shows
+  // the original procedural meshes instead of the Blender models.
+  const query = new URLSearchParams(window.location.search);
+  if (query.get('models') === 'off') setModelsEnabled(false);
+  const deepChapter = query.get('chapter');
+  const deepVolume = deepChapter
+    ? BOOK_VOLUMES.find((v) => v.id === deepChapter || v.chapters.some((c) => c.id === deepChapter))
+    : undefined;
+  if (deepVolume) {
+    switchTopicAndChapter(deepVolume.id, deepVolume.id === deepChapter ? undefined : deepChapter!);
+    bookCover.hide();
+  } else {
+    bookCover.show();
+  }
 
   window.addEventListener('resize', () => {
     sceneManager.resize(host.clientWidth, host.clientHeight);

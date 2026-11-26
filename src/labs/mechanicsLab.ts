@@ -8,6 +8,7 @@ import {
   type CoupledModeKind,
   type DoublePendulumState,
 } from '../physics/mechanicsPhysics';
+import { attachModel } from '../render/modelLibrary';
 import type {
   LabCalloutPoint,
   LabControlSchema,
@@ -168,6 +169,7 @@ export class MechanicsLab implements LabModule {
     );
     pivot.position.set(0, 2.5, 0);
     this.group.add(pivot);
+    void attachModel(pivot, 'pivot_mount', { scale: 1.6 });
 
     const makeRod = (color: number): THREE.Line => {
       const g = this.track(new THREE.BufferGeometry());
@@ -191,6 +193,8 @@ export class MechanicsLab implements LabModule {
       deeper: 'Deterministic Lagrangian ODE integrated via 4th-order Runge-Kutta exhibits positive Lyapunov divergence exponent.',
     });
     this.group.add(this.bobA2, this.bobB2);
+    void attachModel(this.bobA2, 'pendulum_bob');
+    void attachModel(this.bobB2, 'pendulum_bob');
 
     const makeTrail = (color: number): THREE.Line => {
       const g = this.track(new THREE.BufferGeometry());
@@ -214,6 +218,7 @@ export class MechanicsLab implements LabModule {
       const w = new THREE.Mesh(wallG, wallM);
       w.position.set(wx, 0, 0);
       this.group.add(w);
+      void attachModel(w, 'wall_mount', { fit: 'stretch', rotation: wx > 0 ? [0, Math.PI, 0] : undefined });
     }
 
     const bG = this.track(new THREE.BoxGeometry(1.5, 1.5, 1.5));
@@ -235,6 +240,8 @@ export class MechanicsLab implements LabModule {
     });
     this.attachStudy(this.block2, this.block1.userData.study as StudyMeta);
     this.group.add(this.block1, this.block2);
+    void attachModel(this.block1, 'cart_block');
+    void attachModel(this.block2, 'cart_block');
 
     const spG = this.track(new THREE.BufferGeometry());
     spG.setAttribute('position', new THREE.BufferAttribute(new Float32Array(45 * 3), 3));
@@ -250,6 +257,7 @@ export class MechanicsLab implements LabModule {
     );
     stand.position.set(0, -2.1, 0);
     this.group.add(stand);
+    void attachModel(stand, 'gyro_stand', { fit: 'y' });
 
     this.gyroArmGroup = new THREE.Group();
     const tiltRad = (this.gyroTiltDeg * Math.PI) / 180;
@@ -260,6 +268,7 @@ export class MechanicsLab implements LabModule {
     );
     axle.rotation.z = -Math.PI * 0.5;
     axle.position.set(2.3, 0, 0);
+    void attachModel(axle, 'gyro_axle', { fit: 'stretch' });
 
     this.gyroWheelGroup = new THREE.Group();
     this.gyroWheelGroup.position.set(3.2, 0, 0);
@@ -273,6 +282,7 @@ export class MechanicsLab implements LabModule {
       this.track(new THREE.MeshBasicMaterial({ color: 0xfbbf24 })),
     );
     this.gyroWheelGroup.add(rim, spoke);
+    void attachModel(rim, 'gyro_flywheel');
     this.attachStudy(rim, {
       key: 'gyro-wheel',
       title: 'Spinning Gyroscope Flywheel',
@@ -309,12 +319,14 @@ export class MechanicsLab implements LabModule {
       deeper: 'F_cor = −2m(Ω × v_rot) curves frictionless motion sideways in any spinning reference frame.',
     });
     this.group.add(this.diskMesh);
+    void attachModel(this.diskMesh, 'turntable');
 
     this.puckMesh = new THREE.Mesh(
       this.track(new THREE.SphereGeometry(0.36, 18, 18)),
       this.track(new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xd97706, emissiveIntensity: 0.7 })),
     );
     this.group.add(this.puckMesh);
+    void attachModel(this.puckMesh, 'air_puck');
 
     const tG = this.track(new THREE.BufferGeometry());
     tG.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_N * 3), 3));

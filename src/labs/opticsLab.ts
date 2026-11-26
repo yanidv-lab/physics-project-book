@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { attachModel } from '../render/modelLibrary';
 import {
   cauchyIndex,
   computeSnellRefraction,
@@ -227,6 +228,7 @@ export class OpticsLab implements LabModule {
       deeper: 'Cauchy equation n(λ) = A + B/λ² creates continuous angular separation across 410–680 nm.',
     });
     this.group.add(prism);
+    void attachModel(prism, 'optical_prism');
 
     const incRad = (this.prismIncDeg * Math.PI) / 180;
     const entry = new THREE.Vector3(-1.1, 0.2, 0);
@@ -283,6 +285,7 @@ export class OpticsLab implements LabModule {
       deeper: 'Thin lens equation 1/f = 1/d_o + 1/d_i predicts real inverted images (d_o > f) and virtual upright magnifiers (d_o < f).',
     });
     this.group.add(lensMesh);
+    void attachModel(lensMesh, 'convex_lens', { fit: 'x' });
 
     // Focal markers (-f, +f)
     const fDotG = this.track(new THREE.SphereGeometry(0.18, 12, 12));
@@ -291,6 +294,7 @@ export class OpticsLab implements LabModule {
       const m = new THREE.Mesh(fDotG, fMat);
       m.position.set(fx, 0, 0);
       this.group.add(m);
+      void attachModel(m, 'focal_marker');
     }
 
     // Object arrow at x = -d_o, height = 2.0
@@ -362,6 +366,7 @@ export class OpticsLab implements LabModule {
         deeper: 'Malus Law: I = I₀ cos²(Δθ). Slipping a 45° middle filter between crossed 0°/90° filters restores light!',
       });
       this.group.add(m);
+      void attachModel(m, 'polarizer_ring', { fit: 'x' });
       return m;
     };
 

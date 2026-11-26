@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createRadialGlowTexture } from './visualAssets';
 
 const GRID_VERTEX_SHADER = `
@@ -91,6 +92,12 @@ export class SceneManager {
     const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.7);
     rimLight.position.set(-24, 16, -20);
     this.scene.add(rimLight);
+
+    // Studio reflections for Blender PBR models (metal, glass, plastic).
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environmentIntensity = 0.45;
+    pmrem.dispose();
 
     // Procedural radial-fading laboratory grid plane
     const gridGeom = new THREE.PlaneGeometry(150, 150);

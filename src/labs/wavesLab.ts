@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { attachModel } from '../render/modelLibrary';
 import {
   QuantumHarmonicSolver,
   QuantumTunnelingSolver,
@@ -275,6 +276,7 @@ export class WavesLab implements LabModule {
         deeper: 'Huygens-Fresnel coherent point radiator.',
       });
       this.group.add(m);
+      void attachModel(m, 'wave_emitter', { fit: 'y' });
     }
   }
 
@@ -298,6 +300,7 @@ export class WavesLab implements LabModule {
         deeper: 'Dirichlet boundary condition ψ(0) = ψ(L) = 0 quantizes k_n = nπ/L.',
       });
       this.group.add(w);
+      void attachModel(w, 'standing_clamp', { fit: 'stretch', rotation: x > 0 ? [0, Math.PI, 0] : undefined });
     }
 
     const lineG = this.track(new THREE.BufferGeometry());
@@ -691,6 +694,7 @@ export class WavesLab implements LabModule {
           'At ±x_turn = √(2E)/ω, classical kinetic energy vanishes; beyond it |ψ|² decays evanescently rather than stopping abruptly.',
       });
       this.group.add(p);
+      void attachModel(p, 'harmonic_pillar', { fit: 'y' });
     }
 
     // Probability Density Curtain |psi|^2
@@ -764,6 +768,7 @@ export class WavesLab implements LabModule {
       deeper: 'By Ehrenfest’s theorem, d²⟨x⟩/dt² = −ω²⟨x⟩ matches classical harmonic oscillation!',
     });
     this.group.add(this.qhoMeanMarker);
+    void attachModel(this.qhoMeanMarker, 'quantum_bead');
 
     this.updateHarmonicBuffers();
   }

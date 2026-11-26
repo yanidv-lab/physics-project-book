@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { attachModel } from './modelLibrary';
 import type { CircuitState, SimParams } from '../types/simulation';
 import { PathGeometry } from '../physics/pathGeometry';
 import { CircuitModel } from '../physics/circuitModel';
@@ -313,6 +314,7 @@ export class CircuitMeshes {
     const posRing = new THREE.Mesh(ringGeom, posRingMat);
     this.orientObjectToFrame(posRing, posFrame);
     this.group.add(posRing);
+    void attachModel(posRing, 'battery_collar', { fit: 'x' });
 
     const posBadgeMat = this.track(
       new THREE.SpriteMaterial({
@@ -332,6 +334,7 @@ export class CircuitMeshes {
     const negRing = new THREE.Mesh(ringGeom, negRingMat);
     this.orientObjectToFrame(negRing, negFrame);
     this.group.add(negRing);
+    void attachModel(negRing, 'battery_collar', { fit: 'x' });
 
     const negBadgeMat = this.track(
       new THREE.SpriteMaterial({
@@ -445,10 +448,12 @@ export class CircuitMeshes {
       const collarStart = new THREE.Mesh(collarGeom, collarMat);
       this.orientObjectToFrame(collarStart, path.sampleFrame(seg.sStart));
       this.group.add(collarStart);
+      void attachModel(collarStart, 'resistor_collar', { fit: 'x' });
 
       const collarEnd = new THREE.Mesh(collarGeom, collarMat);
       this.orientObjectToFrame(collarEnd, path.sampleFrame(seg.sEnd));
       this.group.add(collarEnd);
+      void attachModel(collarEnd, 'resistor_collar', { fit: 'x' });
 
       this.resistorVisuals.push({
         id: seg.id,
@@ -485,10 +490,12 @@ export class CircuitMeshes {
     const negPlate = new THREE.Mesh(plateGeom, plateMat);
     this.orientObjectToFrame(negPlate, negFrame);
     this.group.add(negPlate);
+    void attachModel(negPlate, 'capacitor_plate', { fit: 'x' });
 
     const posPlate = new THREE.Mesh(plateGeom, plateMat);
     this.orientObjectToFrame(posPlate, posFrame);
     this.group.add(posPlate);
+    void attachModel(posPlate, 'capacitor_plate', { fit: 'x' });
 
     // Luminous charge halos on inner faces
     const haloGeom = this.track(new THREE.TorusGeometry(2.08, 0.095, 10, 32));
@@ -593,6 +600,7 @@ export class CircuitMeshes {
     const core = new THREE.Mesh(coreGeom, this.inductorCoreMat);
     core.position.set(-16, 0, 0);
     this.group.add(core);
+    void attachModel(core, 'inductor_core', { fit: 'z' });
   }
 
   public update(dt: number, state: CircuitState, params: SimParams): void {

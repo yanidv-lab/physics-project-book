@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { attachModel } from '../render/modelLibrary';
 import {
   computeElectricField,
   computeElectricPotential,
@@ -282,6 +283,7 @@ export class EmLab implements LabModule {
       deeper: 'By Gauss’s Law ∇·E = ρ/ε₀, point charges act as divergence sources/sinks of the electrostatic field.',
     });
     this.group.add(this.dipolePosMesh);
+    void attachModel(this.dipolePosMesh, 'charge_emitter');
 
     const haloPos = new THREE.Sprite(
       this.track(
@@ -311,6 +313,7 @@ export class EmLab implements LabModule {
       deeper: 'Dipole electric field falls off asymptotically as 1/r³ far from the charge pair.',
     });
     this.group.add(this.dipoleNegMesh);
+    void attachModel(this.dipoleNegMesh, 'charge_emitter');
 
     const haloNeg = new THREE.Sprite(
       this.track(
@@ -741,6 +744,8 @@ export class EmLab implements LabModule {
     southM.position.z = -1.1;
     this.attachStudy(southM, northM.userData.study as StudyMeta);
     this.magnetGroup.add(northM, southM);
+    void attachModel(northM, 'magnet_pole', { fit: 'stretch' });
+    void attachModel(southM, 'magnet_pole', { fit: 'stretch' });
     this.group.add(this.magnetGroup);
 
     // Indicator Bulb perched above coil
@@ -763,6 +768,7 @@ export class EmLab implements LabModule {
       deeper: 'Instantaneous brightness scales with dissipated power P(t) = ε(t)² / R_load.',
     });
     this.group.add(bulb);
+    void attachModel(bulb, 'incandescent_bulb', { fit: 'y', scale: 1.25 });
 
     this.faradayBulbGlowMat = this.track(
       new THREE.SpriteMaterial({
@@ -888,6 +894,9 @@ export class EmLab implements LabModule {
     this.attachStudy(tipFront, probeStudy);
     this.attachStudy(tipBack, probeStudy);
     this.attachStudy(meterHead, probeStudy);
+    void attachModel(tipFront, 'probe_tip');
+    void attachModel(tipBack, 'probe_tip', { rotation: [0, Math.PI, 0] });
+    void attachModel(meterHead, 'hall_voltmeter');
 
     const leadG = this.track(
       new THREE.BufferGeometry().setFromPoints([

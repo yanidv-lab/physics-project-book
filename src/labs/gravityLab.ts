@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { attachModel } from '../render/modelLibrary';
 import {
   DEFAULT_G,
   bodyMechanicalEnergy,
@@ -450,6 +451,7 @@ export class GravityLab implements LabModule {
         deeper: `Mass ratio μ = ${mu.toFixed(3)} (Trojan points stable only below Routh cutoff μ_crit ≈ 0.0385).`,
       });
       this.group.add(planetM);
+      void attachModel(planetM, 'ringed_planet', { fit: 'y', scale: 1.2 });
       this.starMeshes.push(planetM);
 
       // Planet orbital path circle
@@ -518,6 +520,7 @@ export class GravityLab implements LabModule {
           deeper: notesByPoint[name].deeper,
         });
         this.group.add(marker);
+        void attachModel(marker, 'lagrange_telescope', { scale: 1.5 });
         this.lagrangeMarkers.push(marker);
       }
 
@@ -581,6 +584,7 @@ export class GravityLab implements LabModule {
       deeper: 'Velocity-Verlet integration conserves total mechanical energy E = K + U and angular momentum L = r × p.',
     });
     this.group.add(this.probeMesh);
+    void attachModel(this.probeMesh, 'space_probe', { scale: 1.55 });
 
     const tetherG = this.track(new THREE.BufferGeometry());
     tetherG.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));

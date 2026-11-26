@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { attachModel } from '../render/modelLibrary';
 import {
   contractedLength,
   fissionKFactor,
@@ -161,6 +162,7 @@ export class RelativityLab implements LabModule {
         deeper: 'Defines proper time interval Δτ = 2L / c.',
       });
       this.group.add(m);
+      void attachModel(m, 'clock_mirror');
     }
 
     this.restPhotonMesh = new THREE.Mesh(
@@ -169,6 +171,7 @@ export class RelativityLab implements LabModule {
     );
     this.restPhotonMesh.position.set(-6, 0, 0);
     this.group.add(this.restPhotonMesh);
+    void attachModel(this.restPhotonMesh, 'photon_pulse');
 
     // Moving clock assembly
     this.moveClockGroup = new THREE.Group();
@@ -184,12 +187,14 @@ export class RelativityLab implements LabModule {
         deeper: 'Pythagorean spacetime geometry directly yields Δt = γ Δτ = Δτ / √(1 − β²).',
       });
       this.moveClockGroup.add(m);
+      void attachModel(m, 'clock_mirror');
     }
     this.movePhotonMesh = new THREE.Mesh(
       this.track(new THREE.SphereGeometry(0.25, 14, 14)),
       this.track(new THREE.MeshBasicMaterial({ color: 0xfbbf24 })),
     );
     this.moveClockGroup.add(this.movePhotonMesh);
+    void attachModel(this.movePhotonMesh, 'photon_pulse');
     this.group.add(this.moveClockGroup);
 
     const zG = this.track(new THREE.BufferGeometry());
@@ -253,6 +258,7 @@ export class RelativityLab implements LabModule {
       deeper: 'L = L₀ / γ = L₀ √(1 − β²).',
     });
     this.group.add(this.craftMesh);
+    void attachModel(this.craftMesh, 'relativistic_craft', { fit: 'stretch' });
     this.updateBoostAxes();
   }
 
@@ -361,6 +367,7 @@ export class RelativityLab implements LabModule {
         deeper: 'B-10 captures thermal neutrons before they trigger further U-235 fissions.',
       });
       this.group.add(r);
+      void attachModel(r, 'control_rod', { fit: 'y' });
       this.controlRods.push(r);
     }
 

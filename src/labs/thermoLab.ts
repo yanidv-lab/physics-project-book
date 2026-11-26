@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { attachModel } from '../render/modelLibrary';
 import {
   carnotEfficiency,
   idealGasPressure,
@@ -247,6 +248,7 @@ export class ThermoLab implements LabModule {
         deeper: 'Removing an internal constraint unlocks exponentially more accessible phase-space volume Ω.',
       });
       this.group.add(this.dividerMesh);
+      void attachModel(this.dividerMesh, 'chamber_divider', { fit: 'y' });
     } else {
       // Sliding right-wall piston
       this.pistonMesh = new THREE.Mesh(
@@ -270,6 +272,7 @@ export class ThermoLab implements LabModule {
         deeper: 'Isothermal compression doubles pressure when volume is halved (P₁V₁ = P₂V₂).',
       });
       this.group.add(this.pistonMesh);
+      void attachModel(this.pistonMesh, 'piston_plate', { fit: 'y' });
     }
 
     const pGeom = this.track(new THREE.SphereGeometry(0.16, 10, 10));
@@ -328,6 +331,7 @@ export class ThermoLab implements LabModule {
     );
     this.carnotPistonMesh.position.set(-5.0, 0, 0);
     this.group.add(this.carnotPistonMesh);
+    void attachModel(this.carnotPistonMesh, 'carnot_piston', { fit: 'x' });
 
     // 3D P-V Diagram Loop at x in [+1, +9]
     const loopPts: THREE.Vector3[] = [];
@@ -361,6 +365,7 @@ export class ThermoLab implements LabModule {
       deeper: 'W_net = ∮ P dV = Q_in − Q_out = η Q_in.',
     });
     this.group.add(this.carnotMarkerMesh);
+    void attachModel(this.carnotMarkerMesh, 'pv_marker');
   }
 
   private sampleCarnotPV(phase01: number): { vNorm: number; pNorm: number; stage: string } {
@@ -429,6 +434,7 @@ export class ThermoLab implements LabModule {
       deeper: 'Einstein-Smoluchowski diffusion: mean-squared displacement grows linearly with time ⟨r²⟩ = 6 D t.',
     });
     this.group.add(this.brownianMesh);
+    void attachModel(this.brownianMesh, 'pollen_grain');
 
     const trailG = this.track(new THREE.BufferGeometry());
     trailG.setAttribute('position', new THREE.BufferAttribute(new Float32Array(220 * 3), 3));

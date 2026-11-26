@@ -1,0 +1,202 @@
+{
+  "air_puck": {
+    "tris": 1336,
+    "bytes": 35940,
+    "group": "mechanics"
+  },
+  "battery_collar": {
+    "tris": 2144,
+    "bytes": 56988,
+    "group": "circuits"
+  },
+  "capacitor_plate": {
+    "tris": 2772,
+    "bytes": 68404,
+    "group": "circuits"
+  },
+  "carnot_piston": {
+    "tris": 3104,
+    "bytes": 85052,
+    "group": "thermo"
+  },
+  "cart_block": {
+    "tris": 1156,
+    "bytes": 34816,
+    "group": "mechanics"
+  },
+  "chamber_divider": {
+    "tris": 556,
+    "bytes": 19792,
+    "group": "thermo"
+  },
+  "charge_emitter": {
+    "tris": 2072,
+    "bytes": 49660,
+    "group": "em"
+  },
+  "clock_mirror": {
+    "tris": 684,
+    "bytes": 21444,
+    "group": "relativity"
+  },
+  "control_rod": {
+    "tris": 3486,
+    "bytes": 104444,
+    "group": "relativity"
+  },
+  "convex_lens": {
+    "tris": 5608,
+    "bytes": 127976,
+    "group": "optics"
+  },
+  "flow_cylinder": {
+    "tris": 4592,
+    "bytes": 131532,
+    "group": "fluids"
+  },
+  "focal_marker": {
+    "tris": 1552,
+    "bytes": 42888,
+    "group": "optics"
+  },
+  "gyro_axle": {
+    "tris": 548,
+    "bytes": 14724,
+    "group": "mechanics"
+  },
+  "gyro_flywheel": {
+    "tris": 3344,
+    "bytes": 77952,
+    "group": "mechanics"
+  },
+  "gyro_stand": {
+    "tris": 1028,
+    "bytes": 25352,
+    "group": "mechanics"
+  },
+  "hall_voltmeter": {
+    "tris": 808,
+    "bytes": 22032,
+    "group": "em"
+  },
+  "harmonic_pillar": {
+    "tris": 780,
+    "bytes": 21716,
+    "group": "waves"
+  },
+  "incandescent_bulb": {
+    "tris": 3044,
+    "bytes": 84096,
+    "group": "em"
+  },
+  "inductor_core": {
+    "tris": 4116,
+    "bytes": 117952,
+    "group": "circuits"
+  },
+  "lagrange_telescope": {
+    "tris": 756,
+    "bytes": 21600,
+    "group": "gravity"
+  },
+  "magnet_pole": {
+    "tris": 432,
+    "bytes": 13624,
+    "group": "em"
+  },
+  "optical_prism": {
+    "tris": 1472,
+    "bytes": 32660,
+    "group": "optics"
+  },
+  "pendulum_bob": {
+    "tris": 3440,
+    "bytes": 75288,
+    "group": "mechanics"
+  },
+  "photon_pulse": {
+    "tris": 1552,
+    "bytes": 42100,
+    "group": "relativity"
+  },
+  "piston_plate": {
+    "tris": 1168,
+    "bytes": 32692,
+    "group": "thermo"
+  },
+  "pivot_mount": {
+    "tris": 1220,
+    "bytes": 29448,
+    "group": "mechanics"
+  },
+  "polarizer_ring": {
+    "tris": 3656,
+    "bytes": 94680,
+    "group": "optics"
+  },
+  "pollen_grain": {
+    "tris": 3440,
+    "bytes": 65068,
+    "group": "thermo"
+  },
+  "pressure_column": {
+    "tris": 828,
+    "bytes": 24596,
+    "group": "fluids"
+  },
+  "probe_tip": {
+    "tris": 626,
+    "bytes": 15348,
+    "group": "em"
+  },
+  "pv_marker": {
+    "tris": 1552,
+    "bytes": 42884,
+    "group": "thermo"
+  },
+  "quantum_bead": {
+    "tris": 1552,
+    "bytes": 42884,
+    "group": "waves"
+  },
+  "relativistic_craft": {
+    "tris": 2042,
+    "bytes": 54096,
+    "group": "relativity"
+  },
+  "resistor_collar": {
+    "tris": 2248,
+    "bytes": 56788,
+    "group": "circuits"
+  },
+  "ringed_planet": {
+    "tris": 2520,
+    "bytes": 63576,
+    "group": "gravity"
+  },
+  "space_probe": {
+    "tris": 1370,
+    "bytes": 37728,
+    "group": "gravity"
+  },
+  "standing_clamp": {
+    "tris": 728,
+    "bytes": 22336,
+    "group": "waves"
+  },
+  "turntable": {
+    "tris": 5320,
+    "bytes": 130604,
+    "group": "mechanics"
+  },
+  "wall_mount": {
+    "tris": 680,
+    "bytes": 23212,
+    "group": "mechanics"
+  },
+  "wave_emitter": {
+    "tris": 2776,
+    "bytes": 79344,
+    "group": "waves"
+  }
+}
