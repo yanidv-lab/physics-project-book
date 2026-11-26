@@ -6,7 +6,32 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createRadialGlowTexture } from './visualAssets';
 
-const GRID_VERTEX_SHADER = `
+// Subtle dark-gradient studio/space sky dome (eliminates flat black boilerplate)
+const SKY_DOME_VERT = `
+  varying vec3 vWorldDir;
+  void main() {
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vWorldDir = normalize(position);
+    gl_Position = projectionMatrix * viewMatrix * wp;
+  }
+`;
+
+const SKY_DOME_FRAG = `
+  varying vec3 vWorldDir;
+  void main() {
+    float h = clamp(vWorldDir.y * 0.5 + 0.5, 0.0, 1.0);
+    vec3 nadir = vec3(0.012, 0.018, 0.036);
+    vec3 horizon = vec3(0.038, 0.062, 0.115);
+    vec3 zenith = vec3(0.014, 0.022, 0.048);
+    vec3 col = h < 0.5
+      ? mix(nadir, horizon, smoothstep(0.0, 0.5, h))
+      : mix(horizon, zenith, smoothstep(0.5, 1.0, h));
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
+// Dark reflective laboratory floor with subtle radial measurement rings & hairline coordinate ticks
+const FLOOR_VERT = `
   varying vec3 vWorldPos;
   void main() {
     vec4 wp = modelMatrix * vec4(position, 1.0);
@@ -15,29 +40,36 @@ const GRID_VERTEX_SHADER = `
   }
 `;
 
-const GRID_FRAGMENT_SHADER = `
+const FLOOR_FRAG = `
   varying vec3 vWorldPos;
 
-  float gridLine(vec2 coord, float spacing, float thickness) {
-    vec2 p = coord / spacing;
-    vec2 grid = abs(fract(p - 0.5) - 0.5) / max(fwidth(p), vec2(0.0005));
-    float line = min(grid.x, grid.y);
-    return 1.0 - min(line / thickness, 1.0);
-  }
-
   void main() {
-    float minor = gridLine(vWorldPos.xz, 2.0, 1.15);
-    float major = gridLine(vWorldPos.xz, 10.0, 1.5);
     float dist = length(vWorldPos.xz);
-    float radialFade = exp(-dist * dist * 0.00075);
+    float radialFade = exp(-dist * dist * 0.0014);
+    if (radialFade < 0.005) discard;
 
-    vec3 minorCol = vec3(0.11, 0.19, 0.31);
-    vec3 majorCol = vec3(0.06, 0.55, 0.78);
-    vec3 color = minorCol * minor * 0.55 + majorCol * major * 0.85;
-    float alpha = (minor * 0.22 + major * 0.42) * radialFade;
+    // Dark low-roughness slate floor base sheen
+    vec3 baseFloor = vec3(0.022, 0.032, 0.052) * (0.65 + 0.35 * exp(-dist * 0.08));
 
-    if (alpha < 0.004) discard;
-    gl_FragColor = vec4(color, alpha);
+    // Faint concentric radial measurement rings every 8 units
+    float ringDist = abs(fract(dist / 8.0 - 0.5) - 0.5) * 8.0;
+    float ringLine = 1.0 - smoothstep(0.0, 0.075, ringDist);
+
+    // Subtle hairline coordinate cross-ticks every 4 units (no loud wireframe grid!)
+    vec2 cell = abs(fract(vWorldPos.xz / 4.0 - 0.5) - 0.5) * 4.0;
+    float tickX = (1.0 - smoothstep(0.0, 0.035, cell.y)) * (1.0 - smoothstep(0.18, 0.24, cell.x));
+    float tickZ = (1.0 - smoothstep(0.0, 0.035, cell.x)) * (1.0 - smoothstep(0.18, 0.24, cell.y));
+    float ticks = max(tickX, tickZ);
+
+    // Subtle axis hairlines through origin
+    float axisX = (1.0 - smoothstep(0.0, 0.04, abs(vWorldPos.z))) * 0.35;
+    float axisZ = (1.0 - smoothstep(0.0, 0.04, abs(vWorldPos.x))) * 0.35;
+
+    vec3 markerCol = vec3(0.28, 0.44, 0.62);
+    vec3 col = baseFloor + markerCol * (ringLine * 0.14 + ticks * 0.18 + max(axisX, axisZ) * 0.14);
+    float alpha = (0.58 + ringLine * 0.18 + ticks * 0.16) * radialFade;
+
+    gl_FragColor = vec4(col, alpha);
   }
 `;
 
@@ -50,6 +82,7 @@ export class SceneManager {
   public readonly fog: THREE.FogExp2;
   public readonly labGrid: THREE.Mesh;
 
+  private readonly skyDome: THREE.Mesh;
   private readonly dustPoints: THREE.Points;
   private readonly dustBasePos: Float32Array;
   private dustClock = 0;
@@ -59,64 +92,82 @@ export class SceneManager {
     const height = Math.max(1, container.clientHeight);
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x070b14);
-    this.fog = new THREE.FogExp2(0x070b14, 0.011);
+    this.scene.background = new THREE.Color(0x050914);
+    this.fog = new THREE.FogExp2(0x060b16, 0.0105);
     this.scene.fog = this.fog;
 
-    this.camera = new THREE.PerspectiveCamera(62, width / height, 0.08, 260);
+    this.camera = new THREE.PerspectiveCamera(60, width / height, 0.08, 280);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       powerPreference: 'high-performance',
     });
     this.renderer.setSize(width, height);
+    // Cap pixel ratio to guarantee 60 FPS on HiDPI laptops & mobile GPUs
     const maxDpr = width <= 900 ? 1.75 : 2;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxDpr));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.08;
     this.renderer.localClippingEnabled = true;
 
     container.appendChild(this.renderer.domElement);
 
-    // Scientific studio lighting
-    const ambient = new THREE.AmbientLight(0x94a3b8, 0.72);
+    // Subtle dark-gradient sky dome
+    const skyGeom = new THREE.SphereGeometry(190, 28, 18);
+    const skyMat = new THREE.ShaderMaterial({
+      vertexShader: SKY_DOME_VERT,
+      fragmentShader: SKY_DOME_FRAG,
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false,
+    });
+    this.skyDome = new THREE.Mesh(skyGeom, skyMat);
+    this.scene.add(this.skyDome);
+
+    // Three-point + cool/warm rim lighting to separate 3D silhouettes cleanly
+    const ambient = new THREE.AmbientLight(0x8fa3bf, 0.55);
     this.scene.add(ambient);
 
-    const hemi = new THREE.HemisphereLight(0xdbeafe, 0x0b1120, 0.95);
+    const hemi = new THREE.HemisphereLight(0xdbeafe, 0x090e1a, 0.85);
     this.scene.add(hemi);
 
-    const keyLight = new THREE.DirectionalLight(0xf1f5f9, 1.45);
+    const keyLight = new THREE.DirectionalLight(0xf8fafc, 1.5);
     keyLight.position.set(18, 34, 24);
     this.scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.7);
-    rimLight.position.set(-24, 16, -20);
-    this.scene.add(rimLight);
+    // Cool rim light separating edges from the dark sky
+    const coolRim = new THREE.DirectionalLight(0x38bdf8, 0.92);
+    coolRim.position.set(-24, 16, -22);
+    this.scene.add(coolRim);
 
-    // Studio reflections for Blender PBR models (metal, glass, plastic).
+    // Subtle warm counter-rim against cool metallic structures
+    const warmRim = new THREE.DirectionalLight(0xfb923c, 0.42);
+    warmRim.position.set(22, 10, -18);
+    this.scene.add(warmRim);
+
+    // Studio reflections for Blender PBR models (metal, glass, plastic)
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    this.scene.environmentIntensity = 0.45;
+    this.scene.environmentIntensity = 0.5;
     pmrem.dispose();
 
-    // Procedural radial-fading laboratory grid plane
-    const gridGeom = new THREE.PlaneGeometry(150, 150);
-    gridGeom.rotateX(-Math.PI * 0.5);
-    const gridMat = new THREE.ShaderMaterial({
-      vertexShader: GRID_VERTEX_SHADER,
-      fragmentShader: GRID_FRAGMENT_SHADER,
+    // Dark reflective laboratory floor with subtle spatial reference ticks
+    const floorGeom = new THREE.PlaneGeometry(160, 160);
+    floorGeom.rotateX(-Math.PI * 0.5);
+    const floorMat = new THREE.ShaderMaterial({
+      vertexShader: FLOOR_VERT,
+      fragmentShader: FLOOR_FRAG,
       transparent: true,
       depthWrite: false,
     });
-    this.labGrid = new THREE.Mesh(gridGeom, gridMat);
+    this.labGrid = new THREE.Mesh(floorGeom, floorMat);
     this.labGrid.position.set(0, -5.2, 0);
     this.scene.add(this.labGrid);
 
-    // Subtle ambient quantum dust motes surrounding the circuit
-    const dustCount = 260;
+    // Subtle ambient depth dust motes
+    const dustCount = 220;
     const dustPositions = new Float32Array(dustCount * 3);
     for (let i = 0; i < dustCount; i++) {
-      // Deterministic quasi-random distribution outside immediate wire bore
       const a = ((i * 73) % 360) * (Math.PI / 180);
       const r = 20 + ((i * 37) % 38);
       dustPositions[i * 3] = Math.cos(a) * r;
@@ -127,26 +178,27 @@ export class SceneManager {
     const dustGeom = new THREE.BufferGeometry();
     dustGeom.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
     const dustMat = new THREE.PointsMaterial({
-      size: 0.28,
-      map: createRadialGlowTexture('rgba(186, 230, 253, 0.95)', 'rgba(56, 189, 248, 0.25)'),
+      size: 0.24,
+      map: createRadialGlowTexture('rgba(186, 230, 253, 0.85)', 'rgba(56, 189, 248, 0.18)'),
       transparent: true,
-      opacity: 0.38,
+      opacity: 0.3,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
     this.dustPoints = new THREE.Points(dustGeom, dustMat);
     this.scene.add(this.dustPoints);
 
-    // Post-processing pipeline
+    // Selective Bloom post-processing: high luminance threshold (0.82) so ONLY
+    // high-energy plasma cores and particle emissions glow while hardware stays razor-sharp
     this.composer = new EffectComposer(this.renderer);
     const renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width, height),
-      0.58,
       0.5,
-      0.64,
+      0.42,
+      0.82,
     );
     this.composer.addPass(this.bloomPass);
 
@@ -186,6 +238,8 @@ export class SceneManager {
   }
 
   public dispose(): void {
+    this.skyDome.geometry.dispose();
+    (this.skyDome.material as THREE.Material).dispose();
     this.labGrid.geometry.dispose();
     (this.labGrid.material as THREE.Material).dispose();
     this.dustPoints.geometry.dispose();

@@ -196,6 +196,7 @@ export class FusionLab implements LabModule {
   private heliumGroup: THREE.Group | null = null;
   private fastNeutron: THREE.Mesh | null = null;
   private barrierUniforms: { uTime: { value: number }; uPulse: { value: number } } | null = null;
+  private waveCloudInst: THREE.InstancedMesh | null = null;
   private fusionRings: THREE.Mesh[] = [];
 
   // Chapter 2: Tokamak Magnetic Confinement
@@ -279,6 +280,7 @@ export class FusionLab implements LabModule {
     this.heliumGroup = null;
     this.fastNeutron = null;
     this.barrierUniforms = null;
+    this.waveCloudInst = null;
     this.fusionRings = [];
     this.plasmaUniforms = null;
     this.ionInst = null;
@@ -384,6 +386,53 @@ export class FusionLab implements LabModule {
     this.fastNeutron.visible = false;
     this.group.add(this.fastNeutron);
 
+    // Authentic 3D translucent Coulomb potential-well + repulsive barrier volcano mesh
+    const wellGeom = this.track(new THREE.PlaneGeometry(14, 14, 52, 52));
+    wellGeom.rotateX(-Math.PI * 0.5);
+    const posAttr = wellGeom.getAttribute('position') as THREE.BufferAttribute;
+    for (let i = 0; i < posAttr.count; i++) {
+      const x = posAttr.getX(i);
+      const z = posAttr.getZ(i);
+      const r = Math.hypot(x, z);
+      // Repulsive 1/r Coulomb ridge peaking around r ~ 2.1, plunging into deep strong-force well at r < 1.3
+      const ridge = 2.6 * Math.exp(-Math.pow((r - 2.15) / 1.35, 2));
+      const nuclearWell = -3.4 * Math.exp(-Math.pow(r / 1.15, 2));
+      posAttr.setY(i, ridge + nuclearWell - 2.4);
+    }
+    wellGeom.computeVertexNormals();
+    const wellMesh = new THREE.Mesh(
+      wellGeom,
+      this.track(
+        new THREE.MeshPhysicalMaterial({
+          color: 0x0ea5e9,
+          emissive: 0x0369a1,
+          emissiveIntensity: 0.45,
+          transparent: true,
+          opacity: 0.28,
+          roughness: 0.25,
+          side: THREE.DoubleSide,
+          wireframe: true,
+        }),
+      ),
+    );
+    this.group.add(wellMesh);
+
+    // 180-particle GPU InstancedMesh quantum wave-packet probability density cloud
+    const CLOUD_N = 180;
+    const wcGeom = this.track(new THREE.SphereGeometry(0.085, 8, 6));
+    const wcMat = this.track(
+      new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.55,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    this.waveCloudInst = new THREE.InstancedMesh(wcGeom, wcMat, CLOUD_N);
+    this.waveCloudInst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.group.add(this.waveCloudInst);
+
     // Twin expanding energy shock rings on fusion
     for (let i = 0; i < 2; i++) {
       const r = new THREE.Mesh(
@@ -447,6 +496,31 @@ export class FusionLab implements LabModule {
       deeper: 'Ignition requires n · T · τ_E ≥ 3 × 10²¹ keV·s/m³ so alpha-particle self-heating sustains the burn.',
     });
     this.group.add(plasmaTorus);
+
+    // Explicit 3D helical magnetic field streamlines winding around the plasma torus (q ≈ 3)
+    const streamlineMat = this.track(
+      new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.42,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    for (let s = 0; s < 3; s++) {
+      const phase0 = (s / 3) * Math.PI * 2;
+      const pts: THREE.Vector3[] = [];
+      const steps = 96;
+      for (let k = 0; k <= steps; k++) {
+        const phi = (k / steps) * Math.PI * 2;
+        const theta = phi * 3.0 + phase0;
+        const rLocal = 4.0 + 1.18 * Math.cos(theta);
+        pts.push(new THREE.Vector3(rLocal * Math.cos(phi), 1.18 * Math.sin(theta), rLocal * Math.sin(phi)));
+      }
+      const curve = new THREE.CatmullRomCurve3(pts, true);
+      const tube = new THREE.Mesh(this.track(new THREE.TubeGeometry(curve, 96, 0.032, 6, true)), streamlineMat);
+      this.group.add(tube);
+    }
 
     // 260 live helical streaming plasma ions (GPU InstancedMesh)
     const ION_N = 260;
@@ -576,6 +650,29 @@ export class FusionLab implements LabModule {
     });
     this.group.add(this.starMesh);
 
+    // Outer volumetric Fresnel corona halo atmosphere
+    const coronaMesh = new THREE.Mesh(
+      this.track(new THREE.SphereGeometry(rStar * 1.24, 36, 24)),
+      this.track(
+        new THREE.ShaderMaterial({
+          vertexShader: COULOMB_BARRIER_VERT,
+          fragmentShader: `
+            varying vec3 vNormal;
+            varying vec3 vViewDir;
+            void main() {
+              float fresnel = pow(1.0 - max(dot(normalize(vNormal), normalize(vViewDir)), 0.0), 3.0);
+              vec3 col = vec3(1.0, 0.56, 0.12) * fresnel * 1.35;
+              gl_FragColor = vec4(col, clamp(fresnel * 0.68, 0.0, 0.72));
+            }
+          `,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+      ),
+    );
+    this.group.add(coronaMesh);
+
     // 6 Animated 3D Magnetic Coronal Prominence Loops arching out of the star
     const loopMat = this.track(
       new THREE.MeshBasicMaterial({
@@ -686,6 +783,26 @@ export class FusionLab implements LabModule {
       const dist = 2.6 + bounce * 3.6;
       if (this.deuteriumGroup) this.deuteriumGroup.position.set(-dist, 0, 0);
       if (this.tritiumGroup) this.tritiumGroup.position.set(dist, 0, 0);
+    }
+
+    // Animate 180-particle GPU InstancedMesh wave-packet probability density cloud
+    if (this.waveCloudInst) {
+      const spread = 1.15 + prob * 1.35;
+      const leftX = this.deuteriumGroup?.visible ? this.deuteriumGroup.position.x : -1.2;
+      const rightX = this.tritiumGroup?.visible ? this.tritiumGroup.position.x : 1.2;
+      for (let i = 0; i < 180; i++) {
+        const isLeft = i % 2 === 0;
+        const cx = p >= 0.5 && fuses ? 0 : isLeft ? leftX : rightX;
+        const a = i * 2.399963 + this.simTime * (1.2 + (i % 7) * 0.18);
+        const r = ((i * 37) % 100) / 100 * spread;
+        const elev = Math.sin(i * 1.7 + this.simTime * 2.4) * spread * 0.55;
+        this.dummy.position.set(cx + Math.cos(a) * r, elev, Math.sin(a) * r);
+        const pulse = 0.45 + 0.55 * Math.sin(this.simTime * 5.0 + i);
+        this.dummy.scale.setScalar((p >= 0.5 && fuses ? 0.35 : 0.9) * pulse);
+        this.dummy.updateMatrix();
+        this.waveCloudInst.setMatrixAt(i, this.dummy.matrix);
+      }
+      this.waveCloudInst.instanceMatrix.needsUpdate = true;
     }
   }
 

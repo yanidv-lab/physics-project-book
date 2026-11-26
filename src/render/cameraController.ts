@@ -149,6 +149,22 @@ export class CameraController {
     this.controls.autoRotate = enabled;
   }
 
+  /** Smoothly ease camera position & target toward a choreographed audio-synced keyframe. */
+  public lerpLabOrbit(
+    position: [number, number, number],
+    target: [number, number, number],
+    dt: number,
+  ): void {
+    this.controls.enabled = true;
+    this.controls.autoRotate = false;
+    const alpha = 1 - Math.exp(-Math.max(0.001, dt) * 2.2);
+    this.tmpPos.set(position[0], position[1], position[2]);
+    this.tmpLook.set(target[0], target[1], target[2]);
+    this.sceneManager.camera.position.lerp(this.tmpPos, alpha);
+    this.controls.target.lerp(this.tmpLook, alpha);
+    this.controls.update();
+  }
+
   public updateLabOrbit(): void {
     this.controls.update();
   }

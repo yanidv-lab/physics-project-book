@@ -563,6 +563,29 @@ export class AudioTourDockUI {
     return this.controller.getAudioElement();
   }
 
+  public getPlaybackState(): {
+    active: boolean;
+    playing: boolean;
+    currentTime: number;
+    duration: number;
+    progress: number;
+    cue: AudioTourCue | null;
+  } {
+    const snap = this.controller.getSnapshot();
+    const el = this.controller.getAudioElement();
+    const currentTime = el && Number.isFinite(el.currentTime) ? el.currentTime : 0;
+    const duration = el && Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0;
+    const progress = duration > 0 ? Math.max(0, Math.min(1, currentTime / duration)) : 0;
+    return {
+      active: snap.active,
+      playing: snap.playing,
+      currentTime,
+      duration,
+      progress,
+      cue: snap.cue,
+    };
+  }
+
   private bindEvents(): void {
     this.prevBtn.addEventListener('click', () => this.controller.prev());
     this.playBtn.addEventListener('click', () => this.controller.togglePlayPause());

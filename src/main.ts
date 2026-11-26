@@ -519,6 +519,7 @@ function bootstrap(): void {
   const soloVolBadge = document.getElementById('solo-vol-badge');
   const soloVolTitle = document.getElementById('solo-vol-title');
   const soloChapterPills = document.getElementById('solo-chapter-pills');
+  const soloLiveParams = document.getElementById('solo-live-params');
   const soloTourBtn = document.getElementById('solo-tour-btn') as HTMLButtonElement | null;
   const soloPipBtn = document.getElementById('solo-pip-btn') as HTMLButtonElement | null;
   const soloMinBtn = document.getElementById('solo-min-btn') as HTMLButtonElement | null;
@@ -559,6 +560,35 @@ function bootstrap(): void {
     }
   });
 
+  const renderSoloLiveParams = () => {
+    if (!soloLiveParams) return;
+    soloLiveParams.innerHTML = '';
+    if (!activeLab) return;
+    const sliders = activeLab.getControlSchema().sliders.slice(0, 2);
+    for (const s of sliders) {
+      const wrap = document.createElement('label');
+      wrap.className = 'solo-param-item';
+      const lbl = document.createElement('span');
+      lbl.textContent = s.label;
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = String(s.min);
+      input.max = String(s.max);
+      input.step = String(s.step);
+      input.value = String(s.value);
+      const val = document.createElement('span');
+      val.className = 'solo-param-val';
+      val.textContent = `${s.value}${s.unit}`;
+      input.addEventListener('input', () => {
+        const v = Number(input.value);
+        activeLab?.setParam(s.key, v);
+        val.textContent = `${v}${s.unit}`;
+      });
+      wrap.append(lbl, input, val);
+      soloLiveParams.appendChild(wrap);
+    }
+  };
+
   const renderSoloDock = (topicId: TopicId, activeChId: string) => {
     const vol = getVolumeById(topicId);
     if (soloVolBadge) soloVolBadge.textContent = vol.roman;
@@ -568,6 +598,7 @@ function bootstrap(): void {
       for (const ch of vol.chapters) {
         const btn = document.createElement('button');
         btn.className = `solo-ch-pill${ch.id === activeChId ? ' active' : ''}`;
+        btn.dataset.chapterId = ch.id;
         btn.textContent = `${ch.number}. ${ch.title}`;
         btn.addEventListener('click', () => {
           switchTopicAndChapter(topicId, ch.id);
@@ -577,6 +608,7 @@ function bootstrap(): void {
         soloChapterPills.appendChild(btn);
       }
     }
+    renderSoloLiveParams();
   };
 
   const enterSoloScreenInScreen = (topicId: TopicId, chapterId?: string, pipFrame = true) => {
@@ -736,7 +768,28 @@ function bootstrap(): void {
       const animDt = params.paused ? 0 : rawDt;
       sceneManager.update(animDt);
       activeLab.update(animDt);
-      cameraController.updateLabOrbit();
+
+      // Audio-synced keyframed camera choreography & chapter pill progress bar
+      const playback = audioTour.getPlaybackState();
+      if (playback.active && playback.playing && playback.cue?.cameraKeyframes?.length) {
+        const kfs = playback.cue.cameraKeyframes;
+        let activeKf = kfs[0];
+        for (const kf of kfs) {
+          if (playback.currentTime >= kf.atSec) activeKf = kf;
+        }
+        cameraController.lerpLabOrbit(activeKf.position, activeKf.target, rawDt);
+      } else {
+        cameraController.updateLabOrbit();
+      }
+      if (soloChapterPills && playback.active && playback.cue) {
+        const activePill = soloChapterPills.querySelector<HTMLElement>(
+          `.solo-ch-pill[data-chapter-id="${playback.cue.chapterId}"]`,
+        );
+        if (activePill) {
+          activePill.style.setProperty('--ch-progress', `${(playback.progress * 100).toFixed(1)}%`);
+        }
+      }
+
       interaction.update();
       collisionVignette.style.opacity = '0';
 

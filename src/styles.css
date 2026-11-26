@@ -1988,8 +1988,101 @@ body.solo-pip-frame .solo-restore-bar-btn {
   color: #fef2f2;
   font-size: 12px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
 }
+
+/* Typography & Micro-interactions: jitter-free tabular numbers for all live telemetry & timers */
+.mono-val,
+.telemetry-val,
+.stat-value,
+.tour-step-pill,
+.solo-param-val {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Decluttered, sleeker frosted-glass docks with higher blur, thinner 1px border, tighter footprint */
+.audio-tour-bar {
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  padding: 8px 12px !important;
+  background: rgba(6, 10, 19, 0.78) !important;
+}
+
+.tour-caption {
+  font-size: 11.5px !important;
+  line-height: 1.38 !important;
+  max-height: 3.1em;
+  overflow-y: auto;
+}
+
+.solo-theater-dock {
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  padding: 8px 12px !important;
+  background: rgba(6, 10, 19, 0.78) !important;
+}
+
+#hud-root.hud-solo-mode .audio-tour-bar {
+  bottom: 112px;
+}
+
+/* Subtle live progress bar inside active chapter pill */
+.solo-ch-pill {
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.solo-ch-pill.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: var(--ch-progress, 0%);
+  background: linear-gradient(90deg, #38bdf8, #f472b6);
+  transition: width 0.12s linear;
+}
+
+/* Compact 1-row live interactive physics parameter sliders inside Solo / Audio-guided mode */
+.solo-live-params {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.solo-live-params:empty {
+  display: none;
+}
+
+.solo-param-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 180px;
+  min-width: 150px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.solo-param-item input[type='range'] {
+  flex: 1;
+  min-width: 64px;
+  accent-color: #38bdf8;
+  height: 4px;
+}
+
+.solo-param-val {
+  color: #e0f2fe;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  min-width: 48px;
+  text-align: right;
+}
+
 
 
 
