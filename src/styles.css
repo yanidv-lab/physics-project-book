@@ -1783,3 +1783,150 @@ input[type='range'] {
   max-width: min(760px, calc(100vw - 24px));
 }
 
+/* Solo Single-Volume Mode (?volume=<id>&solo=1): zero clutter for messaging app recipients */
+#hud-root.hud-solo-mode .top-bar,
+#hud-root.hud-solo-mode .panel-left,
+#hud-root.hud-solo-mode .panel-right,
+#hud-root.hud-solo-mode .mobile-bottom-nav {
+  display: none !important;
+}
+
+/* Screen-in-Screen (PiP) framed card mode so shared links feel like an embedded video player */
+body.solo-pip-frame {
+  background: radial-gradient(circle at 50% 30%, #0f172a 0%, #020617 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.solo-pip-frame #app {
+  position: relative !important;
+  inset: auto !important;
+  width: min(860px, calc(100vw - 24px));
+  height: min(560px, calc(100vh - 24px));
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+.solo-theater-dock {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  width: min(760px, calc(100vw - 24px));
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(7, 11, 20, 0.84);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  z-index: 40;
+  pointer-events: auto;
+}
+
+body.solo-pip-frame .solo-theater-dock {
+  position: absolute;
+  width: calc(100% - 20px);
+  bottom: 10px;
+}
+
+#hud-root.hud-solo-mode .audio-tour-bar {
+  bottom: 108px;
+  max-width: min(740px, calc(100% - 24px));
+}
+
+.solo-dock-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.solo-vol-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-right: auto;
+}
+
+.solo-dock-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.solo-full-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.solo-chapter-pills {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.solo-ch-pill {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.72);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.solo-ch-pill.active {
+  border-color: rgba(56, 189, 248, 0.7);
+  background: rgba(14, 165, 233, 0.2);
+  color: #e0f2fe;
+}
+
+.share-card {
+  max-width: 520px;
+}
+
+.share-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.share-link-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.share-link-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.85);
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+
+.share-actions-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.share-record-status {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #fde68a;
+  min-height: 16px;
+}
+
+

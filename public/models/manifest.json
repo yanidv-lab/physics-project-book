@@ -74,6 +74,11 @@
     "bytes": 42888,
     "group": "optics"
   },
+  "fusion_hohlraum": {
+    "tris": 4936,
+    "bytes": 109032,
+    "group": "fusion"
+  },
   "gyro_axle": {
     "tris": 548,
     "bytes": 14724,
@@ -113,6 +118,11 @@
     "tris": 756,
     "bytes": 21600,
     "group": "gravity"
+  },
+  "laser_injector": {
+    "tris": 764,
+    "bytes": 23272,
+    "group": "fusion"
   },
   "magnet_pole": {
     "tris": 432,
@@ -203,6 +213,11 @@
     "tris": 728,
     "bytes": 22336,
     "group": "waves"
+  },
+  "tokamak_vessel": {
+    "tris": 8388,
+    "bytes": 249268,
+    "group": "fusion"
   },
   "turntable": {
     "tris": 5320,

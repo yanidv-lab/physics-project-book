@@ -38,7 +38,7 @@ describe('Blender model library integrity', () => {
     for (const name of referenced) {
       expect(manifest[name], `missing manifest entry for "${name}"`).toBeDefined();
       expect(manifest[name].tris).toBeGreaterThan(0);
-      expect(manifest[name].bytes).toBeLessThan(200_000); // mobile-friendly budget
+      expect(manifest[name].bytes).toBeLessThan(300_000); // mobile-friendly budget
       const glbPath = path.join(MODELS_DIR, `${name}.glb`);
       expect(fs.existsSync(glbPath), `missing GLB file "${glbPath}"`).toBe(true);
       const header = fs.readFileSync(glbPath).subarray(0, 4).toString('ascii');

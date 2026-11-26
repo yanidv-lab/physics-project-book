@@ -541,6 +541,48 @@ export const VOLUME_AUDIO_TOURS: VolumeAudioTour[] = [
       },
     ],
   },
+  {
+    topicId: 'fusion',
+    title: 'Vol. XI — Stellar Fusion & Tokamak Plasma',
+    cues: [
+      {
+        id: 'tour-fus-1',
+        chapterId: 'fus-tokamak',
+        title: 'Tokamak Magnetic Plasma Cage',
+        actionLabel: 'Energizing 12 T superconducting coils at 160 MK',
+        narration:
+          'Welcome to Volume Eleven, exploring nuclear fusion—the clean stellar engine that powers every star in the universe. Inside this cutaway superconducting tokamak, deuterium and tritium plasma burns at one hundred sixty million Kelvin, ten times hotter than the center of the Sun. Because no solid material could ever touch that plasma without vaporizing, powerful toroidal and poloidal magnets twist the field lines into a helical bottle that levitates the glowing plasma cleanly away from every wall.',
+        apply: { bTesla: 12.0, tokamakTempMK: 160, confinementSec: 4.5 },
+      },
+      {
+        id: 'tour-fus-2',
+        chapterId: 'fus-tunnel',
+        title: 'Quantum Tunneling D-T Fusion',
+        actionLabel: 'Colliding Deuterium & Tritium at 160 MK',
+        narration:
+          'Why does fusion require such extraordinary temperatures in the first place? Every atomic nucleus is positively charged, so Deuterium and Tritium fiercely repel each other behind a steep electrostatic Coulomb barrier. At one hundred sixty million degrees, their thermal speeds bring them close enough for quantum wave functions to overlap and tunnel straight through the barrier—snapping into a Helium-4 alpha particle and a fourteen-point-one million electron-volt fast neutron.',
+        apply: { tunnelTempMK: 160, triggerFusion: true },
+      },
+      {
+        id: 'tour-fus-3',
+        chapterId: 'fus-icf',
+        title: 'Laser Inertial Confinement (ICF)',
+        actionLabel: 'Firing 16 synchronized UV lasers (2.4 MJ)',
+        narration:
+          'There is a second, completely different way to ignite fusion on Earth: inertial confinement. Watch sixteen synchronized ultraviolet laser beams fire into this tiny golden hohlraum cavity, turning laser energy into a uniform bath of X-rays that crushes the frozen fuel capsule in billionths of a second. Above two megajoules of laser drive, alpha self-heating crosses the ignition cliff so fusion energy output surpasses the laser energy put in.',
+        apply: { laserMJ: 2.4, fireLasers: true },
+      },
+      {
+        id: 'tour-fus-4',
+        chapterId: 'fus-stellar',
+        title: 'Solar Core & Magnetic Corona',
+        actionLabel: 'Inspecting 1.0 M☉ boiling photosphere & coronal loops',
+        narration:
+          'Finally, zoom out to nature’s original fusion reactor: a living star. Deep inside our Sun, immense gravitational pressure sustains proton-proton fusion continuously for ten billion years, converting four point two six million tonnes of hydrogen mass into pure radiant starlight every single second. Above the boiling convective photosphere, twisted magnetic arches channel incandescent plasma across the solar corona.',
+        apply: { solarMasses: 1.0 },
+      },
+    ],
+  },
 ];
 
 export function getAudioTourForVolume(topicId: TopicId): VolumeAudioTour {

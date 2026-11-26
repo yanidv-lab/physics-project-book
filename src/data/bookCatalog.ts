@@ -821,6 +821,87 @@ export const NUCLEAR_CHAPTERS: BookChapterSummary[] = [
   },
 ];
 
+export const FUSION_CHAPTERS: BookChapterSummary[] = [
+  {
+    id: 'fus-tokamak',
+    topicId: 'fusion',
+    number: 1,
+    title: 'Tokamak Magnetic Plasma Cage',
+    subtitle: '150 MK Toroidal Plasma, Superconducting Coils & Lawson Q',
+    difficulty: 'Beginner',
+    accent: '#f472b6',
+    isNew: true,
+    simpleSummary:
+      'No solid container can survive 150-million-degree plasma—so superconducting magnets twist field lines into a floating donut cage, levitating burning fuel away from the walls!',
+    watchFor: [
+      'Watch the glowing helical plasma filaments twist around the cutaway Blender superconducting coils!',
+      'Crank Toroidal Magnetic Field B up to 12 T to push the Lawson triple product into self-sustaining IGNITED BURN.',
+    ],
+    quickActions: [
+      { label: 'Ignite Tokamak (12 T · 160 MK)', apply: { bTesla: 12.0, tokamakTempMK: 160, confinementSec: 4.5 } },
+      { label: 'Low-Field Driven (5 T)', apply: { bTesla: 5.0, tokamakTempMK: 90, confinementSec: 1.5 } },
+    ],
+  },
+  {
+    id: 'fus-tunnel',
+    topicId: 'fusion',
+    number: 2,
+    title: 'Quantum Tunneling D-T Fusion',
+    subtitle: '²H + ³H → ⁴He (3.5 MeV) + n (14.1 MeV)',
+    difficulty: 'Intermediate',
+    accent: '#38bdf8',
+    isNew: true,
+    simpleSummary:
+      'Deuterium and Tritium nuclei both carry positive charge and violently repel—yet at extreme heat, their quantum waves overlap and tunnel straight through the Coulomb barrier!',
+    watchFor: [
+      'Drop Plasma Temperature to 25 MK to watch them bounce off the glowing barrier, then raise to 160 MK to watch them fuse!',
+    ],
+    quickActions: [
+      { label: 'Hot Tunneling (160 MK)', apply: { tunnelTempMK: 160, triggerFusion: true } },
+      { label: 'Cold Coulomb Bounce (25 MK)', apply: { tunnelTempMK: 25, triggerFusion: true } },
+    ],
+  },
+  {
+    id: 'fus-icf',
+    topicId: 'fusion',
+    number: 3,
+    title: 'Laser Inertial Confinement (ICF)',
+    subtitle: '16 Converging UV Lasers, Gold Hohlraum & Q > 1 Ignition',
+    difficulty: 'Intermediate',
+    accent: '#fbbf24',
+    isNew: true,
+    simpleSummary:
+      'Sixteen synchronized ultraviolet laser beams fire into a tiny gold hohlraum, bathing a frozen fuel pellet in uniform X-rays until it implodes past scientific breakeven (Q > 1)!',
+    watchFor: [
+      'Cross 2.0 MJ laser drive to watch the dramatic white-gold thermonuclear ignition flash and expanding alpha-heating wave!',
+    ],
+    quickActions: [
+      { label: 'NIF Ignition Shot (2.4 MJ)', apply: { laserMJ: 2.4, fireLasers: true } },
+      { label: 'Sub-Ignition (1.2 MJ)', apply: { laserMJ: 1.2, fireLasers: true } },
+    ],
+  },
+  {
+    id: 'fus-stellar',
+    topicId: 'fusion',
+    number: 4,
+    title: 'Solar Core & Magnetic Corona',
+    subtitle: 'Boiling Photosphere, Coronal Loops & L ∝ M³·⁵',
+    difficulty: 'Advanced',
+    accent: '#f97316',
+    isNew: true,
+    simpleSummary:
+      'Gravity acts as nature’s ultimate fusion reactor—crushing hydrogen in our Sun’s core to convert 4.26 million tonnes of matter into pure starlight every single second!',
+    watchFor: [
+      'Watch glowing plasma beads race along 3D magnetic coronal prominence arches above the boiling GLSL photosphere!',
+      'Slide Stellar Mass up to 2.0 M☉ to see luminosity jump more than 11× and shift blue-white.',
+    ],
+    quickActions: [
+      { label: 'Our Sun (1.0 M☉)', apply: { solarMasses: 1.0 } },
+      { label: 'Blue-White Giant (2.0 M☉)', apply: { solarMasses: 2.0 } },
+    ],
+  },
+];
+
 export const BOOK_VOLUMES: BookVolume[] = [
   {
     id: 'circuits',
@@ -946,6 +1027,17 @@ export const BOOK_VOLUMES: BookVolume[] = [
     description:
       'Explore the complete physics of an atomic reaction—from a single U-235 droplet snapping apart to critical mass, density compression (M_c ∝ 1/ρ²), and the E = mc² fireball shockwave.',
     chapters: NUCLEAR_CHAPTERS,
+  },
+  {
+    id: 'fusion',
+    roman: 'Vol. XI',
+    title: 'Stellar Fusion & Tokamak',
+    subtitle: 'Tokamak Plasma, Quantum Tunneling, Laser ICF & Stars',
+    icon: '☀️',
+    accent: '#f472b6',
+    description:
+      'Step inside a 150-million-degree magnetic tokamak, fire 16 converging UV lasers at a gold hohlraum, watch D-T nuclei tunnel through Coulomb repulsion, and orbit a boiling star.',
+    chapters: FUSION_CHAPTERS,
   },
 ];
 

@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#070b14" />
+    <meta property="og:title" content="Physics Project Book — Interactive 3D Lab" />
+    <meta
+      property="og:description"
+      content="Explore interactive 3D physics simulations with synchronized neural audio tours — opens cleanly as a single-volume screen-in-screen viewer."
+    />
+    <meta property="og:type" content="website" />
     <link rel="manifest" href="./manifest.json" />
     <title>Physics Project Book — Interactive 3D Lab</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -37,7 +43,7 @@
               </div>
             </div>
             <div class="book-cover-actions">
-              <span id="book-cover-total" class="cover-progress-pill">0 / 49 Experiments Explored</span>
+              <span id="book-cover-total" class="cover-progress-pill">0 / 53 Experiments Explored</span>
               <button id="book-cover-phone" class="icon-btn" title="Open on Mobile Phone">📱 Open on Phone</button>
               <button id="book-cover-close" class="icon-btn">✕ Live 3D</button>
             </div>
@@ -109,6 +115,9 @@
             <button id="macro-view-btn" class="icon-btn" title="Wide Macro Lesson View (Key V)">
               🔭 Macro
             </button>
+            <button id="share-volume-btn" class="icon-btn" title="Share Single Volume (Link / Audio / Video)">
+              📤 Share
+            </button>
             <button id="audio-tour-btn" class="icon-btn audio-tour-toggle-btn" title="Play Synchronized 3D Audio Explainer for Active Volume">
               🎧 Tour
             </button>
@@ -151,7 +160,7 @@
             <div id="book-volume-strip" class="book-volume-strip"></div>
             <div class="book-progress-box">
               <div class="book-progress-head">
-                <button id="book-open-cover-btn" class="chip-btn">All 10 Volumes ▾</button>
+                <button id="book-open-cover-btn" class="chip-btn">All 11 Volumes ▾</button>
                 <span id="book-progress-text" class="mono-val">0 / 9 in Vol. I</span>
               </div>
               <div class="progress-track">
@@ -438,6 +447,42 @@
         </nav>
 
         <div id="barrier-banner" class="barrier-banner hidden"></div>
+
+        <!-- Solo Single-Volume Screen-in-Screen Theater Dock (shown only for ?solo=1 shared links) -->
+        <section id="solo-theater-dock" class="solo-theater-dock hidden" aria-label="Single Volume Player">
+          <div class="solo-dock-top">
+            <span id="solo-vol-badge" class="tour-badge">Vol. XI</span>
+            <span id="solo-vol-title" class="solo-vol-title">Stellar Fusion &amp; Tokamak</span>
+            <div class="solo-dock-actions">
+              <button id="solo-tour-btn" class="tour-btn tour-play-btn" title="Play Synchronized Audio + 3D Tour">▶ Play Audio-Sim</button>
+              <button id="solo-pip-btn" class="tour-btn" title="Toggle Screen-in-Screen Compact Frame">🗔 Screen-in-Screen</button>
+              <button id="solo-share-btn" class="tour-btn" title="Share Link or Record Video">📤 Share / Vid</button>
+              <a id="solo-fullbook-link" class="tour-btn solo-full-link" href="./" title="Open Full Physics Project Book">Full Book ↗</a>
+            </div>
+          </div>
+          <div id="solo-chapter-pills" class="solo-chapter-pills"></div>
+        </section>
+
+        <!-- Share Volume Modal (Single-Volume Solo Link + 3D Video/Audio Clip Recorder) -->
+        <div id="share-volume-modal" class="phone-modal hidden" role="dialog" aria-modal="true" aria-label="Share Volume">
+          <div class="phone-card share-card">
+            <div class="phone-head">
+              <h2 id="share-vol-title">Share Volume</h2>
+              <button id="share-modal-close" class="icon-btn">✕</button>
+            </div>
+            <p id="share-vol-desc" class="share-desc"></p>
+            <div class="share-link-row">
+              <input id="share-solo-link-input" class="share-link-input" type="text" readonly aria-label="Single-volume share URL" />
+              <button id="share-copy-link-btn" class="icon-btn active">📋 Copy Solo Link</button>
+            </div>
+            <div class="share-actions-grid">
+              <button id="share-native-btn" class="icon-btn hidden">💬 Send to Messaging App</button>
+              <button id="share-preview-solo-btn" class="icon-btn">🗔 Preview Screen-in-Screen</button>
+              <button id="share-record-vid-btn" class="icon-btn">🎬 Record 3D Video Clip</button>
+            </div>
+            <div id="share-record-status" class="share-record-status"></div>
+          </div>
+        </div>
       </div>
     </div>
 

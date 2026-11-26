@@ -12,6 +12,7 @@ import { setModelsEnabled } from './render/modelLibrary';
 import { PROJECT_CHAPTERS, resolveHeroAnchorS } from './data/projectBook';
 import { EmLab } from './labs/emLab';
 import { FluidsLab } from './labs/fluidsLab';
+import { FusionLab } from './labs/fusionLab';
 import { GravityLab } from './labs/gravityLab';
 import type { LabModule } from './labs/labModule';
 import { MechanicsLab } from './labs/mechanicsLab';
@@ -41,6 +42,7 @@ import { DynamicLabControls } from './ui/dynamicLabControls';
 import { BookCoverModal } from './ui/bookCover';
 import { AudioTourDockUI } from './ui/audioTourPlayer';
 import { PhoneModal } from './ui/phoneModal';
+import { ShareVolumeModal } from './ui/shareVolumeModal';
 import type { TopicId, TopologyId } from './types/simulation';
 
 const FIXED_DT = 1 / 120;
@@ -79,6 +81,7 @@ function bootstrap(): void {
     fluids: new FluidsLab(),
     relativity: new RelativityLab(),
     nuclear: new NuclearLab(),
+    fusion: new FusionLab(),
   };
   let activeTopic: TopicId = 'circuits';
   let activeLab: LabModule | null = null;
@@ -507,16 +510,99 @@ function bootstrap(): void {
   controls.syncUI();
   interaction.setMarkMode(false);
 
-  // Deep links: ?chapter=<chapter-id> opens a lab directly; ?models=off shows
-  // the original procedural meshes; ?macro=1 opens in wide Macro Lesson View.
+  const soloDock = document.getElementById('solo-theater-dock');
+  const soloVolBadge = document.getElementById('solo-vol-badge');
+  const soloVolTitle = document.getElementById('solo-vol-title');
+  const soloChapterPills = document.getElementById('solo-chapter-pills');
+  const soloTourBtn = document.getElementById('solo-tour-btn') as HTMLButtonElement | null;
+  const soloPipBtn = document.getElementById('solo-pip-btn') as HTMLButtonElement | null;
+  const soloShareBtn = document.getElementById('solo-share-btn') as HTMLButtonElement | null;
+  const shareVolumeBtn = document.getElementById('share-volume-btn') as HTMLButtonElement | null;
+
+  const renderSoloDock = (topicId: TopicId, activeChId: string) => {
+    const vol = getVolumeById(topicId);
+    if (soloVolBadge) soloVolBadge.textContent = vol.roman;
+    if (soloVolTitle) soloVolTitle.textContent = vol.title;
+    if (soloChapterPills) {
+      soloChapterPills.innerHTML = '';
+      for (const ch of vol.chapters) {
+        const btn = document.createElement('button');
+        btn.className = `solo-ch-pill${ch.id === activeChId ? ' active' : ''}`;
+        btn.textContent = `${ch.number}. ${ch.title}`;
+        btn.addEventListener('click', () => {
+          switchTopicAndChapter(topicId, ch.id);
+          applyMacroFraming();
+          renderSoloDock(topicId, ch.id);
+        });
+        soloChapterPills.appendChild(btn);
+      }
+    }
+  };
+
+  const enterSoloScreenInScreen = (topicId: TopicId, chapterId?: string, pipFrame = true) => {
+    const vol = getVolumeById(topicId);
+    const chId = chapterId && vol.chapters.some((c) => c.id === chapterId) ? chapterId : vol.chapters[0]?.id ?? '';
+    switchTopicAndChapter(topicId, chId);
+    bookCover.hide();
+    hudOverlay?.classList.add('hud-solo-mode');
+    soloDock?.classList.remove('hidden');
+    document.body.classList.toggle('solo-pip-frame', pipFrame);
+    soloPipBtn?.classList.toggle('active', pipFrame);
+    setMacroView(true);
+    renderSoloDock(topicId, chId);
+    sceneManager.resize(host.clientWidth, host.clientHeight);
+  };
+
+  const shareModal = new ShareVolumeModal({
+    getActiveTopicId: () => activeTopic,
+    getActiveChapterId: () => (activeTopic === 'circuits' ? activeCircuitChapterId : activeLab?.getActiveChapterId() ?? ''),
+    getCanvas: () => sceneManager.renderer.domElement,
+    onStartTourForRecording: (topicId) => {
+      shareModal.hide();
+      audioTour.startVolume(topicId);
+    },
+    onEnterSoloMode: (topicId) => {
+      const chId = activeTopic === 'circuits' ? activeCircuitChapterId : activeLab?.getActiveChapterId();
+      enterSoloScreenInScreen(topicId, chId, true);
+    },
+  });
+
+  shareVolumeBtn?.addEventListener('click', () => shareModal.show());
+  soloShareBtn?.addEventListener('click', () => shareModal.show());
+  soloTourBtn?.addEventListener('click', () => {
+    if (audioTour.isActive()) audioTour.stop();
+    else audioTour.startVolume(activeTopic);
+  });
+  soloPipBtn?.addEventListener('click', () => {
+    const next = !document.body.classList.contains('solo-pip-frame');
+    document.body.classList.toggle('solo-pip-frame', next);
+    soloPipBtn.classList.toggle('active', next);
+    sceneManager.resize(host.clientWidth, host.clientHeight);
+  });
+
+  // Deep links:
+  // - ?volume=<topicId>&solo=1 (or ?chapter=<id>&solo=1): clean Screen-in-Screen single-volume player for messaging apps
+  // - ?chapter=<chapter-id>: opens a lab directly; ?macro=1 opens in wide Macro Lesson View; ?models=off compares procedural meshes
   const query = new URLSearchParams(window.location.search);
   if (query.get('models') === 'off') setModelsEnabled(false);
+  const queryVolume = query.get('volume');
   const deepChapter = query.get('chapter');
-  const deepVolume = deepChapter
-    ? BOOK_VOLUMES.find((v) => v.id === deepChapter || v.chapters.some((c) => c.id === deepChapter))
-    : undefined;
-  if (deepVolume) {
-    switchTopicAndChapter(deepVolume.id, deepVolume.id === deepChapter ? undefined : deepChapter!);
+  const isSolo = query.get('solo') === '1';
+
+  const deepVolume =
+    (queryVolume ? BOOK_VOLUMES.find((v) => v.id === queryVolume) : undefined) ??
+    (deepChapter
+      ? BOOK_VOLUMES.find((v) => v.id === deepChapter || v.chapters.some((c) => c.id === deepChapter))
+      : undefined);
+
+  if (deepVolume && isSolo) {
+    enterSoloScreenInScreen(
+      deepVolume.id,
+      deepChapter && deepChapter !== deepVolume.id ? deepChapter : undefined,
+      query.get('pip') !== '0',
+    );
+  } else if (deepVolume) {
+    switchTopicAndChapter(deepVolume.id, deepChapter && deepChapter !== deepVolume.id ? deepChapter : undefined);
     bookCover.hide();
     if (query.get('macro') === '1') setMacroView(true);
   } else {
