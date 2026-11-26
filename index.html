@@ -69,6 +69,35 @@
         </div>
       </div>
 
+      <!-- Share Volume Modal (Single-Volume Solo Link + Full-Audio 3D Video Clip Recorder) -->
+      <div id="share-volume-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Share Volume">
+        <div class="phone-dialog share-card">
+          <div class="phone-dialog-head">
+            <h3 id="share-vol-title">Share Volume</h3>
+            <button id="share-modal-close" class="mini-icon-btn">✕</button>
+          </div>
+          <p id="share-vol-desc" class="share-desc"></p>
+          <div class="share-link-row">
+            <input id="share-solo-link-input" class="share-link-input" type="text" readonly aria-label="Single-volume share URL" />
+            <button id="share-copy-link-btn" class="icon-btn active">📋 Copy Link</button>
+          </div>
+          <div class="share-actions-grid">
+            <button id="share-native-btn" class="icon-btn active hidden">💬 Share Link to App</button>
+            <button id="share-preview-solo-btn" class="icon-btn">🗔 Screen-in-Screen</button>
+            <button id="share-record-vid-btn" class="icon-btn">🎬 Record Full Audio-Sim Video</button>
+            <button id="share-video-only-btn" class="icon-btn active hidden">📤 Share Video Clip Only</button>
+            <button id="share-download-vid-btn" class="icon-btn hidden">⬇ Save Video</button>
+          </div>
+          <div id="share-record-status" class="share-record-status"></div>
+        </div>
+      </div>
+
+      <!-- Floating Recording Indicator Pill -->
+      <div id="recording-floating-pill" class="recording-floating-pill hidden">
+        <span id="rec-pill-label">● REC 0:00 (Full Audio)</span>
+        <button id="rec-pill-stop-btn" class="tour-btn tour-play-btn">⏹ Stop &amp; Share</button>
+      </div>
+
       <button id="show-hud-btn" class="hud-restore-btn hidden" title="Show HUD (H)">
         Show HUD [H]
       </button>
@@ -442,11 +471,16 @@
           <button class="mob-nav-btn" data-mobile-sheet="book">📖 Book</button>
           <button class="mob-nav-btn" data-mobile-sheet="controls">🎛 Controls</button>
           <button class="mob-nav-btn" data-mobile-sheet="stats">📊 Stats</button>
-          <button class="mob-nav-btn" data-mobile-sheet="marks">📌 Marks</button>
+          <button id="mob-share-btn" class="mob-nav-btn" type="button">📤 Share</button>
           <button class="mob-nav-btn active" data-mobile-sheet="none">👁 3D</button>
         </nav>
 
         <div id="barrier-banner" class="barrier-banner hidden"></div>
+
+        <!-- Tiny Restore Pill when bottom bar is minimized by tapping screen -->
+        <button id="solo-restore-bar-btn" class="solo-restore-bar-btn hidden" type="button" title="Show Controls">
+          ▲ Controls
+        </button>
 
         <!-- Solo Single-Volume Screen-in-Screen Theater Dock (shown only for ?solo=1 shared links) -->
         <section id="solo-theater-dock" class="solo-theater-dock hidden" aria-label="Single Volume Player">
@@ -454,35 +488,15 @@
             <span id="solo-vol-badge" class="tour-badge">Vol. XI</span>
             <span id="solo-vol-title" class="solo-vol-title">Stellar Fusion &amp; Tokamak</span>
             <div class="solo-dock-actions">
-              <button id="solo-tour-btn" class="tour-btn tour-play-btn" title="Play Synchronized Audio + 3D Tour">▶ Play Audio-Sim</button>
-              <button id="solo-pip-btn" class="tour-btn" title="Toggle Screen-in-Screen Compact Frame">🗔 Screen-in-Screen</button>
-              <button id="solo-share-btn" class="tour-btn" title="Share Link or Record Video">📤 Share / Vid</button>
-              <a id="solo-fullbook-link" class="tour-btn solo-full-link" href="./" title="Open Full Physics Project Book">Full Book ↗</a>
+              <button id="solo-tour-btn" class="tour-btn tour-play-btn" title="Play Synchronized Audio + 3D Tour">▶ Audio-Sim</button>
+              <button id="solo-share-btn" class="tour-btn" title="Share Link or Record Full Video">📤 Share</button>
+              <button id="solo-pip-btn" class="tour-btn" title="Toggle Screen-in-Screen Compact Frame">🗔 PiP</button>
+              <button id="solo-min-btn" class="tour-btn" title="Minimize Bar (or tap 3D screen)">⌄</button>
+              <a id="solo-fullbook-link" class="tour-btn solo-full-link" href="./" title="Open Full Physics Project Book">Book ↗</a>
             </div>
           </div>
           <div id="solo-chapter-pills" class="solo-chapter-pills"></div>
         </section>
-
-        <!-- Share Volume Modal (Single-Volume Solo Link + 3D Video/Audio Clip Recorder) -->
-        <div id="share-volume-modal" class="phone-modal hidden" role="dialog" aria-modal="true" aria-label="Share Volume">
-          <div class="phone-card share-card">
-            <div class="phone-head">
-              <h2 id="share-vol-title">Share Volume</h2>
-              <button id="share-modal-close" class="icon-btn">✕</button>
-            </div>
-            <p id="share-vol-desc" class="share-desc"></p>
-            <div class="share-link-row">
-              <input id="share-solo-link-input" class="share-link-input" type="text" readonly aria-label="Single-volume share URL" />
-              <button id="share-copy-link-btn" class="icon-btn active">📋 Copy Solo Link</button>
-            </div>
-            <div class="share-actions-grid">
-              <button id="share-native-btn" class="icon-btn hidden">💬 Send to Messaging App</button>
-              <button id="share-preview-solo-btn" class="icon-btn">🗔 Preview Screen-in-Screen</button>
-              <button id="share-record-vid-btn" class="icon-btn">🎬 Record 3D Video Clip</button>
-            </div>
-            <div id="share-record-status" class="share-record-status"></div>
-          </div>
-        </div>
       </div>
     </div>
 

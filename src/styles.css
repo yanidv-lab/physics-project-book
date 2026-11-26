@@ -1929,4 +1929,67 @@ body.solo-pip-frame .solo-theater-dock {
   min-height: 16px;
 }
 
+#share-volume-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+/* Tap-to-minimize bottom bar on phone so the 3D simulation is 100% unobstructed */
+#hud-root.bottom-bars-minimized .solo-theater-dock,
+#hud-root.bottom-bars-minimized .audio-tour-bar {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translate(-50%, 24px) !important;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.solo-theater-dock,
+.audio-tour-bar {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.solo-restore-bar-btn {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 45;
+  pointer-events: auto;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(7, 11, 20, 0.84);
+  backdrop-filter: blur(10px);
+  color: #e0f2fe;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+body.solo-pip-frame .solo-restore-bar-btn {
+  position: absolute;
+}
+
+.recording-floating-pill {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(127, 29, 29, 0.92);
+  border: 1px solid rgba(248, 113, 113, 0.65);
+  color: #fef2f2;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+}
+
+
 

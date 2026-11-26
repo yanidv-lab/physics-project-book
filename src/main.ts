@@ -488,6 +488,8 @@ function bootstrap(): void {
     if (e.key === 'v' || e.key === 'V') setMacroView(!macroViewActive);
   });
 
+  let shareModal!: ShareVolumeModal;
+
   audioTour = new AudioTourDockUI({
     onCueStart: (topicId, cue) => {
       applyChapterCue(topicId, cue.chapterId, cue.apply);
@@ -499,8 +501,11 @@ function bootstrap(): void {
     },
     onStateChange: (snapshot) => {
       controls.setAudioTourActive(snapshot.active);
-      if (!snapshot.active && macroViewActive) {
-        setMacroView(false);
+      if (!snapshot.active) {
+        shareModal?.onAudioTourFinished();
+        if (macroViewActive && !hudOverlay?.classList.contains('hud-solo-mode')) {
+          setMacroView(false);
+        }
       }
     },
   });
@@ -516,8 +521,43 @@ function bootstrap(): void {
   const soloChapterPills = document.getElementById('solo-chapter-pills');
   const soloTourBtn = document.getElementById('solo-tour-btn') as HTMLButtonElement | null;
   const soloPipBtn = document.getElementById('solo-pip-btn') as HTMLButtonElement | null;
+  const soloMinBtn = document.getElementById('solo-min-btn') as HTMLButtonElement | null;
+  const soloRestoreBarBtn = document.getElementById('solo-restore-bar-btn') as HTMLButtonElement | null;
   const soloShareBtn = document.getElementById('solo-share-btn') as HTMLButtonElement | null;
   const shareVolumeBtn = document.getElementById('share-volume-btn') as HTMLButtonElement | null;
+  const mobShareBtn = document.getElementById('mob-share-btn') as HTMLButtonElement | null;
+
+  let bottomBarsMinimized = false;
+  const setBottomBarsMinimized = (minimized: boolean) => {
+    bottomBarsMinimized = minimized;
+    hudOverlay?.classList.toggle('bottom-bars-minimized', minimized);
+    const hasBottomBar = hudOverlay?.classList.contains('hud-solo-mode') || audioTour.isActive();
+    soloRestoreBarBtn?.classList.toggle('hidden', !minimized || !hasBottomBar);
+  };
+
+  soloMinBtn?.addEventListener('click', () => setBottomBarsMinimized(true));
+  soloRestoreBarBtn?.addEventListener('click', () => setBottomBarsMinimized(false));
+
+  // Quick tap on the 3D canvas toggles minimizing the bottom bar on phones so it never covers the simulation
+  let tapStartX = 0;
+  let tapStartY = 0;
+  let tapStartTime = 0;
+  const glCanvas = sceneManager.renderer.domElement;
+  glCanvas.addEventListener('pointerdown', (e) => {
+    tapStartX = e.clientX;
+    tapStartY = e.clientY;
+    tapStartTime = performance.now();
+  });
+  glCanvas.addEventListener('pointerup', (e) => {
+    const moved = Math.hypot(e.clientX - tapStartX, e.clientY - tapStartY);
+    const elapsed = performance.now() - tapStartTime;
+    if (moved < 10 && elapsed < 320) {
+      const hasBottomBar = hudOverlay?.classList.contains('hud-solo-mode') || audioTour.isActive();
+      if (hasBottomBar) {
+        setBottomBarsMinimized(!bottomBarsMinimized);
+      }
+    }
+  });
 
   const renderSoloDock = (topicId: TopicId, activeChId: string) => {
     const vol = getVolumeById(topicId);
@@ -548,18 +588,24 @@ function bootstrap(): void {
     soloDock?.classList.remove('hidden');
     document.body.classList.toggle('solo-pip-frame', pipFrame);
     soloPipBtn?.classList.toggle('active', pipFrame);
+    setBottomBarsMinimized(false);
     setMacroView(true);
     renderSoloDock(topicId, chId);
     sceneManager.resize(host.clientWidth, host.clientHeight);
   };
 
-  const shareModal = new ShareVolumeModal({
+  shareModal = new ShareVolumeModal({
     getActiveTopicId: () => activeTopic,
     getActiveChapterId: () => (activeTopic === 'circuits' ? activeCircuitChapterId : activeLab?.getActiveChapterId() ?? ''),
     getCanvas: () => sceneManager.renderer.domElement,
+    getAudioElement: () => audioTour.getAudioElement(),
     onStartTourForRecording: (topicId) => {
-      shareModal.hide();
+      setBottomBarsMinimized(true);
       audioTour.startVolume(topicId);
+    },
+    onStopTourAfterRecording: () => {
+      if (audioTour.isActive()) audioTour.stop();
+      setBottomBarsMinimized(false);
     },
     onEnterSoloMode: (topicId) => {
       const chId = activeTopic === 'circuits' ? activeCircuitChapterId : activeLab?.getActiveChapterId();
@@ -568,6 +614,10 @@ function bootstrap(): void {
   });
 
   shareVolumeBtn?.addEventListener('click', () => shareModal.show());
+  mobShareBtn?.addEventListener('click', () => {
+    controls.setMobileSheet('none');
+    shareModal.show();
+  });
   soloShareBtn?.addEventListener('click', () => shareModal.show());
   soloTourBtn?.addEventListener('click', () => {
     if (audioTour.isActive()) audioTour.stop();

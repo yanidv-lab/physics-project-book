@@ -292,10 +292,15 @@ export class AudioTourController {
     return cue.audioUrl ?? `./audio/tours/${cue.id}.mp3`;
   }
 
+  public getAudioElement(): HTMLAudioElement | null {
+    return this.ensureAudioElement();
+  }
+
   private ensureAudioElement(): HTMLAudioElement | null {
     if (!this.isNeuralAudioSupported()) return null;
     if (!this.audioEl) {
       this.audioEl = new Audio();
+      this.audioEl.crossOrigin = 'anonymous';
       this.audioEl.preload = 'auto';
     }
     return this.audioEl;
@@ -552,6 +557,10 @@ export class AudioTourDockUI {
 
   public isActive(): boolean {
     return this.controller.getSnapshot().active;
+  }
+
+  public getAudioElement(): HTMLAudioElement | null {
+    return this.controller.getAudioElement();
   }
 
   private bindEvents(): void {
