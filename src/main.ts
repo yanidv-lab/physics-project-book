@@ -15,6 +15,7 @@ import { FluidsLab } from './labs/fluidsLab';
 import { GravityLab } from './labs/gravityLab';
 import type { LabModule } from './labs/labModule';
 import { MechanicsLab } from './labs/mechanicsLab';
+import { NuclearLab } from './labs/nuclearLab';
 import { OpticsLab } from './labs/opticsLab';
 import { RelativityLab } from './labs/relativityLab';
 import { ThermoLab } from './labs/thermoLab';
@@ -77,6 +78,7 @@ function bootstrap(): void {
     mechanics: new MechanicsLab(),
     fluids: new FluidsLab(),
     relativity: new RelativityLab(),
+    nuclear: new NuclearLab(),
   };
   let activeTopic: TopicId = 'circuits';
   let activeLab: LabModule | null = null;
@@ -447,15 +449,56 @@ function bootstrap(): void {
     },
   });
 
+  const hudOverlay = document.getElementById('hud-root');
+  const macroViewBtn = document.getElementById('macro-view-btn') as HTMLButtonElement | null;
+  let macroViewActive = false;
+
+  const applyMacroFraming = () => {
+    if (!macroViewActive) return;
+    if (activeTopic === 'circuits') {
+      cameraController.setMode('macro-overview', path, engine, circuitMeshes, instanced);
+      controls.setActiveCameraButton('macro-overview');
+    } else if (activeLab) {
+      const camSpec = activeLab.getRecommendedCamera();
+      cameraController.setLabMacroOrbit(camSpec.position, camSpec.target, true);
+    }
+  };
+
+  const setMacroView = (on: boolean) => {
+    macroViewActive = on;
+    hudOverlay?.classList.toggle('hud-macro-mode', on);
+    macroViewBtn?.classList.toggle('active', on);
+    if (on) {
+      if (window.innerWidth <= 900) controls.setMobileSheet('none');
+      applyMacroFraming();
+    } else if (activeLab) {
+      const camSpec = activeLab.getRecommendedCamera();
+      cameraController.setLabOrbit(camSpec.position, camSpec.target);
+    } else {
+      cameraController.setAutoRotate(false);
+    }
+  };
+
+  macroViewBtn?.addEventListener('click', () => setMacroView(!macroViewActive));
+  window.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (e.key === 'v' || e.key === 'V') setMacroView(!macroViewActive);
+  });
+
   audioTour = new AudioTourDockUI({
     onCueStart: (topicId, cue) => {
       applyChapterCue(topicId, cue.chapterId, cue.apply);
       if (window.innerWidth <= 900) {
         controls.setMobileSheet('none');
       }
+      // Present every audio tour lesson from a clean, unobstructed macro vantage
+      setMacroView(true);
     },
     onStateChange: (snapshot) => {
       controls.setAudioTourActive(snapshot.active);
+      if (!snapshot.active && macroViewActive) {
+        setMacroView(false);
+      }
     },
   });
 
@@ -465,7 +508,7 @@ function bootstrap(): void {
   interaction.setMarkMode(false);
 
   // Deep links: ?chapter=<chapter-id> opens a lab directly; ?models=off shows
-  // the original procedural meshes instead of the Blender models.
+  // the original procedural meshes; ?macro=1 opens in wide Macro Lesson View.
   const query = new URLSearchParams(window.location.search);
   if (query.get('models') === 'off') setModelsEnabled(false);
   const deepChapter = query.get('chapter');
@@ -475,6 +518,7 @@ function bootstrap(): void {
   if (deepVolume) {
     switchTopicAndChapter(deepVolume.id, deepVolume.id === deepChapter ? undefined : deepChapter!);
     bookCover.hide();
+    if (query.get('macro') === '1') setMacroView(true);
   } else {
     bookCover.show();
   }

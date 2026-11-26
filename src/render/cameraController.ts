@@ -113,6 +113,7 @@ export class CameraController {
 
   public setLabOrbit(position: [number, number, number], target: [number, number, number]): void {
     this.controls.enabled = true;
+    this.controls.autoRotate = false;
     this.beaconGroup.visible = false;
     this.sceneManager.setFogDensity(0.004);
     const cam = this.sceneManager.camera;
@@ -120,6 +121,32 @@ export class CameraController {
     cam.position.set(position[0], position[1], position[2]);
     this.controls.target.set(target[0], target[1], target[2]);
     this.controls.update();
+  }
+
+  /** Wide, elevated macro framing of the full lesson with gentle museum-style auto-orbit. */
+  public setLabMacroOrbit(
+    position: [number, number, number],
+    target: [number, number, number],
+    autoRotate = true,
+  ): void {
+    this.controls.enabled = true;
+    this.controls.autoRotate = autoRotate;
+    this.controls.autoRotateSpeed = 0.55;
+    this.beaconGroup.visible = false;
+    this.sceneManager.setFogDensity(0.0028);
+    const cam = this.sceneManager.camera;
+    cam.up.set(0, 1, 0);
+    const tgt = new THREE.Vector3(target[0], target[1], target[2]);
+    const offset = new THREE.Vector3(position[0], position[1], position[2]).sub(tgt);
+    offset.multiplyScalar(1.42);
+    offset.y += Math.max(2.2, offset.length() * 0.16);
+    cam.position.copy(tgt).add(offset);
+    this.controls.target.copy(tgt);
+    this.controls.update();
+  }
+
+  public setAutoRotate(enabled: boolean): void {
+    this.controls.autoRotate = enabled;
   }
 
   public updateLabOrbit(): void {

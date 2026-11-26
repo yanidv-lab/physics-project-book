@@ -7,7 +7,8 @@ export type TopicId =
   | 'optics'
   | 'mechanics'
   | 'fluids'
-  | 'relativity';
+  | 'relativity'
+  | 'nuclear';
 export type TopologyId = 'simple-r' | 'rc' | 'rlc' | 'divider';
 export type SourceMode = 'dc' | 'ac';
 export type CameraMode = 'locked-drift' | 'raw-pov' | 'side-cutaway' | 'macro-overview';

@@ -1768,3 +1768,18 @@ input[type='range'] {
   font-size: 12px;
   line-height: 1.42;
 }
+
+/* Wide Macro Lesson View: collapse side panels so the 3D scene fills the viewport */
+#hud-root.hud-macro-mode .panel-left,
+#hud-root.hud-macro-mode .panel-right,
+#hud-root.hud-macro-mode .mobile-bottom-bar {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+#hud-root.hud-macro-mode .audio-tour-bar {
+  max-width: min(760px, calc(100vw - 24px));
+}
+

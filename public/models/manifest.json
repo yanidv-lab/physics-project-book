@@ -9,6 +9,11 @@
     "bytes": 56988,
     "group": "circuits"
   },
+  "blast_calorimeter": {
+    "tris": 6848,
+    "bytes": 159892,
+    "group": "nuclear"
+  },
   "capacitor_plate": {
     "tris": 2772,
     "bytes": 68404,
@@ -39,6 +44,11 @@
     "bytes": 21444,
     "group": "relativity"
   },
+  "compression_shell": {
+    "tris": 5408,
+    "bytes": 158764,
+    "group": "nuclear"
+  },
   "control_rod": {
     "tris": 3486,
     "bytes": 104444,
@@ -48,6 +58,11 @@
     "tris": 5608,
     "bytes": 127976,
     "group": "optics"
+  },
+  "fissile_core": {
+    "tris": 4584,
+    "bytes": 106812,
+    "group": "nuclear"
   },
   "flow_cylinder": {
     "tris": 4592,
@@ -103,6 +118,11 @@
     "tris": 432,
     "bytes": 13624,
     "group": "em"
+  },
+  "neutron_emitter": {
+    "tris": 3296,
+    "bytes": 97732,
+    "group": "nuclear"
   },
   "optical_prism": {
     "tris": 1472,

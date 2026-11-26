@@ -739,6 +739,88 @@ export const RELATIVITY_CHAPTERS: BookChapterSummary[] = [
   },
 ];
 
+export const NUCLEAR_CHAPTERS: BookChapterSummary[] = [
+  {
+    id: 'nuc-liquiddrop',
+    topicId: 'nuclear',
+    number: 1,
+    title: 'Liquid-Drop Nuclear Fission',
+    subtitle: 'U-235 + n → Ba-141 + Kr-92 + 3n + 200 MeV',
+    difficulty: 'Beginner',
+    accent: '#f97316',
+    isNew: true,
+    simpleSummary:
+      'A single slow neutron slips into Uranium-235 and makes the nucleus wobble like a stretched water droplet until electric repulsion snaps its thin neck—releasing 200 MeV and 3 fast neutrons!',
+    watchFor: [
+      'Watch the glowing neck pinch in the custom GLSL liquid-drop shader before scission!',
+      'Notice how 1 neutron enters and 3 fast neutrons fly out to seed a chain reaction.',
+    ],
+    quickActions: [
+      { label: 'Fire Thermal Neutron', apply: { fireNeutron: true, dropSpeed: 0.24 } },
+      { label: 'Ultra Slow-Mo (0.10×)', apply: { fireNeutron: true, dropSpeed: 0.1 } },
+    ],
+  },
+  {
+    id: 'nuc-critical',
+    topicId: 'nuclear',
+    number: 2,
+    title: 'Critical Mass & Chain Reaction',
+    subtitle: 'Neutron Leakage vs Exponential Growth (k_eff)',
+    difficulty: 'Intermediate',
+    accent: '#38bdf8',
+    isNew: true,
+    simpleSummary:
+      'In a small lump of Uranium-235, most neutrons escape through the surface before hitting another atom. Cross Critical Mass or add a Neutron Reflector so k_eff > 1 and the cascade explodes exponentially!',
+    watchFor: [
+      'Compare 25 kg (Subcritical fizzle) vs 72 kg + Reflector (Supercritical cascade)!',
+    ],
+    quickActions: [
+      { label: 'Subcritical (25 kg)', apply: { coreMassKg: 25, reflectorEff: 0.0 } },
+      { label: 'Supercritical + Reflector', apply: { coreMassKg: 72, reflectorEff: 0.65 } },
+    ],
+  },
+  {
+    id: 'nuc-implosion',
+    topicId: 'nuclear',
+    number: 3,
+    title: 'Density Compression (M_c ∝ 1/ρ²)',
+    subtitle: 'How Compressing a Subcritical Core Turns It Supercritical',
+    difficulty: 'Intermediate',
+    accent: '#fbbf24',
+    isNew: true,
+    simpleSummary:
+      'Squeezing a metallic sphere to 2× normal density packs nuclei closer together—shrinking the critical mass by 4× (M_c ∝ 1/ρ²)! A safely subcritical core suddenly jumps deeply supercritical.',
+    watchFor: [
+      'Watch the core glow shift from cool blue (subcritical) to blazing orange-red (supercritical) as ρ/ρ₀ rises!',
+    ],
+    quickActions: [
+      { label: 'Uncompressed (1.0× ρ₀)', apply: { compressionRatio: 1.0 } },
+      { label: 'Peak Compression (2.3× ρ₀)', apply: { compressionRatio: 2.3 } },
+      { label: 'Auto Pulse', apply: { implosionAuto: true } },
+    ],
+  },
+  {
+    id: 'nuc-fireball',
+    topicId: 'nuclear',
+    number: 4,
+    title: 'E = mc² Fireball & Shockwave',
+    subtitle: 'Blackbody Plasma, Sedov-Taylor Blast & Energy Split',
+    difficulty: 'Advanced',
+    accent: '#ef4444',
+    isNew: true,
+    simpleSummary:
+      'Converting less than ONE GRAM of mass defect directly into energy heats the air into a blinding blackbody plasma fireball, launching a Sedov-Taylor shockwave and towering thermal convection plume.',
+    watchFor: [
+      'Notice the energy split: 50% blast shockwave, 35% thermal flash, and 15% nuclear radiation.',
+      'Slide Fissioned Mass up to 2.0 kg to see both Δm (grams) and Sedov-Taylor radius R(t) grow!',
+    ],
+    quickActions: [
+      { label: '15 kt Reference (0.85 kg)', apply: { fissionedMassKg: 0.85, triggerBlast: true } },
+      { label: '35 kt High Yield (2.0 kg)', apply: { fissionedMassKg: 2.0, triggerBlast: true } },
+    ],
+  },
+];
+
 export const BOOK_VOLUMES: BookVolume[] = [
   {
     id: 'circuits',
@@ -853,6 +935,17 @@ export const BOOK_VOLUMES: BookVolume[] = [
     description:
       'Compare moving light clocks, tilt Minkowski spacetime axes inside a 3D light cone, watch 216 atoms decay randomly, and steer a Uranium-235 chain reaction.',
     chapters: RELATIVITY_CHAPTERS,
+  },
+  {
+    id: 'nuclear',
+    roman: 'Vol. X',
+    title: 'Atomic Fission & Energy',
+    subtitle: 'Liquid-Drop Split, Critical Mass, Implosion & E=mc²',
+    icon: '☢️',
+    accent: '#f97316',
+    description:
+      'Explore the complete physics of an atomic reaction—from a single U-235 droplet snapping apart to critical mass, density compression (M_c ∝ 1/ρ²), and the E = mc² fireball shockwave.',
+    chapters: NUCLEAR_CHAPTERS,
   },
 ];
 
